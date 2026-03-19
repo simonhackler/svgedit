@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, describe, expect, it } from 'vitest'
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { NS } from '../../packages/svgcanvas/core/namespaces.js'
 import * as history from '../../packages/svgcanvas/core/history.js'
 import dataStorage from '../../packages/svgcanvas/core/dataStorage.js'
@@ -35,7 +35,8 @@ describe('elem-get-set', () => {
         clear () {}
       },
       runExtensions () {},
-      call () {},
+      call: vi.fn(),
+      changeSelectedAttribute: vi.fn(),
       getDOMDocument () { return document },
       getSvgContent () { return svgContent },
       getSelectedElements () { return this.selectedElements || [] },
@@ -51,6 +52,10 @@ describe('elem-get-set', () => {
       },
       addCommandToHistory (cmd) {
         historyStack.push(cmd)
+      },
+      setCurText () {},
+      textActions: {
+        setCursor () {}
       }
     }
     svgContent.setAttribute('width', '100')
@@ -231,5 +236,44 @@ describe('elem-get-set', () => {
     localCanvas.undoMgr.redo()
     expect(localCanvas.contentW).toBe(200)
     expect(localCanvas.contentH).toBe(150)
+  })
+
+  it('setBold() emits changed only for modified text elements', () => {
+    const text = createSvgElement('text')
+    text.textContent = 'Hello'
+    const rect = createSvgElement('rect')
+    svgContent.append(text, rect)
+    canvas.selectedElements = [text, rect]
+
+    canvas.setBold(true)
+
+    expect(canvas.changeSelectedAttribute).toHaveBeenCalledWith('font-weight', 'bold', [text])
+    expect(canvas.call).toHaveBeenCalledWith('changed', [text])
+  })
+
+  it('setBold() skips changed event for no-op text updates', () => {
+    const text = createSvgElement('text')
+    text.textContent = 'Hello'
+    text.setAttribute('font-weight', 'bold')
+    svgContent.append(text)
+    canvas.selectedElements = [text]
+
+    canvas.setBold(true)
+
+    expect(canvas.changeSelectedAttribute).not.toHaveBeenCalled()
+    expect(canvas.call).not.toHaveBeenCalled()
+  })
+
+  it('setFontColor() ignores non-text selections when emitting changed', () => {
+    const text = createSvgElement('text')
+    text.textContent = 'Hello'
+    const rect = createSvgElement('rect')
+    svgContent.append(text, rect)
+    canvas.selectedElements = [text, rect]
+
+    canvas.setFontColor('#f00')
+
+    expect(canvas.changeSelectedAttribute).toHaveBeenCalledWith('fill', '#f00', [text])
+    expect(canvas.call).toHaveBeenCalledWith('changed', [text])
   })
 })
