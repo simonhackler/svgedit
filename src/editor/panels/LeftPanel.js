@@ -168,6 +168,18 @@ class LeftPanel {
    */
   clickText () {
     if (this.updateLeftPanel('tool_text')) {
+      this.editor.svgCanvas.useMultilineText = false
+      this.editor.svgCanvas.setMode('text')
+    }
+  }
+
+  /**
+   *
+   * @returns {void}
+   */
+  clickTextMultiline () {
+    if (this.updateLeftPanel('tool_text_multiline')) {
+      this.editor.svgCanvas.useMultilineText = true
       this.editor.svgCanvas.setMode('text')
     }
   }
@@ -205,6 +217,7 @@ class LeftPanel {
     $click($id('tool_select'), this.clickSelect.bind(this))
     $click($id('tool_fhpath'), this.clickFHPath.bind(this))
     $click($id('tool_text'), this.clickText.bind(this))
+    $click($id('tool_text_multiline'), this.clickTextMultiline.bind(this))
     $click($id('tool_image'), this.clickImage.bind(this))
     $click($id('tool_zoom'), this.clickZoom.bind(this))
     $id('tool_zoom').addEventListener('dblclick', this.dblclickZoom.bind(this))

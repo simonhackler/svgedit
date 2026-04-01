@@ -8,6 +8,7 @@ import {
   assignAttributes, cleanupElement, getElement, getRotationAngle, snapToGrid, walkTree,
   preventClickDefault, setHref, getBBox
 } from './utilities.js'
+import { enableMultilineTextElement } from './multiline-text.js'
 import {
   convertAttrs
 } from './units.js'
@@ -870,8 +871,13 @@ const mouseUpEvent = (evt) => {
       break
     case 'text':
       keep = true
-      svgCanvas.selectOnly([element])
-      svgCanvas.textActions.start(element)
+      if (svgCanvas.useMultilineText) {
+        enableMultilineTextElement(element)
+        svgCanvas.selectOnly([element])
+      } else {
+        svgCanvas.selectOnly([element])
+        svgCanvas.textActions.start(element)
+      }
       break
     case 'path': {
       // set element to null here so that it is not removed nor finalized

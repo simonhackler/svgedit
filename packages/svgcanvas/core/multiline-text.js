@@ -4,6 +4,7 @@ import { NS } from './namespaces.js'
 const RAW_TEXT_ATTR = 'data-svgedit-raw-text'
 const WRAP_WIDTH_ATTR = 'data-svgedit-wrap-width'
 const LINE_HEIGHT_ATTR = 'data-svgedit-line-height'
+const MULTILINE_ATTR = 'data-svgedit-multiline'
 
 const toNumber = (value, fallback) => {
   const parsed = Number.parseFloat(value)
@@ -42,8 +43,9 @@ export const applyMultilineText = (textElem, rawText) => {
   const normalizedText = String(rawText ?? '')
   const hasHardBreaks = normalizedText.includes('\n') || normalizedText.includes('\r')
   const hasWrapWidth = Number.isFinite(toNumber(textElem.getAttribute(WRAP_WIDTH_ATTR), Number.NaN))
+  const forceMultiline = textElem.getAttribute(MULTILINE_ATTR) === 'true'
 
-  if (!hasHardBreaks && !hasWrapWidth) {
+  if (!hasHardBreaks && !hasWrapWidth && !forceMultiline) {
     clearTextChildren(textElem)
     textElem.textContent = normalizedText
     textElem.removeAttribute(RAW_TEXT_ATTR)
@@ -68,6 +70,9 @@ export const applyMultilineText = (textElem, rawText) => {
   })
 
   textElem.setAttribute(RAW_TEXT_ATTR, normalizedText)
+  if (forceMultiline || hasHardBreaks || hasWrapWidth) {
+    textElem.setAttribute(MULTILINE_ATTR, 'true')
+  }
 }
 
 export const getRawMultilineText = (textElem) => {
@@ -80,5 +85,16 @@ export const isMultilineTextElement = (textElem) => {
   }
   const raw = textElem.getAttribute(RAW_TEXT_ATTR)
   const hasWrapWidth = Number.isFinite(toNumber(textElem.getAttribute(WRAP_WIDTH_ATTR), Number.NaN))
-  return Boolean(raw && (raw.includes('\n') || raw.includes('\r'))) || hasWrapWidth
+  const forceMultiline = textElem.getAttribute(MULTILINE_ATTR) === 'true'
+  return forceMultiline || Boolean(raw && (raw.includes('\n') || raw.includes('\r'))) || hasWrapWidth
+}
+
+export const enableMultilineTextElement = (textElem) => {
+  if (!textElem) {
+    return
+  }
+  textElem.setAttribute(MULTILINE_ATTR, 'true')
+  if (!textElem.hasAttribute(RAW_TEXT_ATTR)) {
+    textElem.setAttribute(RAW_TEXT_ATTR, textElem.textContent || '')
+  }
 }
