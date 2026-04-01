@@ -82,6 +82,7 @@
     ]
   },
   "dependencies": {
+    "@chenglou/pretext": "0.0.3",
     "@svgedit/svgcanvas": "7.4.1",
     "browser-fs-access": "0.38.0",
     "elix": "15.0.1",

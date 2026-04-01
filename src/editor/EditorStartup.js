@@ -206,6 +206,7 @@ class EditorStartup {
     this.svgCanvas.bind('afterClear', this.afterClear.bind(this))
 
     this.svgCanvas.textActions.setInputElem($id('text'))
+    this.svgCanvas.useMultilineText = false
 
     this.setBackground(this.configObj.pref('bkgd_color'), this.configObj.pref('bkgd_url'))
 
@@ -270,6 +271,14 @@ class EditorStartup {
     }
 
     addListenerMulti($id('text'), 'keyup input', (evt) => {
+      this.svgCanvas.setTextContent(evt.currentTarget.value)
+    })
+
+    addListenerMulti($id('text_multiline'), 'keyup input', (evt) => {
+      const selected = this.svgCanvas.getSelectedElements()[0]
+      if (selected?.tagName === 'text') {
+        selected.setAttribute('data-svgedit-multiline', 'true')
+      }
       this.svgCanvas.setTextContent(evt.currentTarget.value)
     })
 
