@@ -14,7 +14,7 @@ import {
   convertToNum
 } from './units.js'
 import { getParents } from '../common/util.js'
-import { applyMultilineText, getRawMultilineText } from './multiline-text.js'
+import { applyMultilineText, getRawMultilineText, isMultilineTextElement } from './multiline-text.js'
 
 let svgCanvas = null
 
@@ -971,11 +971,17 @@ const getTextMethod = () => {
 const setTextContentMethod = (val) => {
   svgCanvas.changeSelectedAttribute('#text', val)
   const selected = svgCanvas.getSelectedElements()[0]
-  if (selected?.tagName === 'text' && svgCanvas.getCurrentMode() !== 'textedit') {
+  const hasHardBreaks = String(val).includes('\n') || String(val).includes('\r')
+  const shouldApplyMultiline = selected?.tagName === 'text' && (isMultilineTextElement(selected) || hasHardBreaks)
+
+  if (shouldApplyMultiline) {
     applyMultilineText(selected, val)
   }
-  svgCanvas.textActions.init(val)
-  svgCanvas.textActions.setCursor()
+
+  if (svgCanvas.getCurrentMode() === 'textedit' && !shouldApplyMultiline) {
+    svgCanvas.textActions.init(val)
+    svgCanvas.textActions.setCursor()
+  }
 }
 
 /**

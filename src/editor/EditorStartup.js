@@ -275,6 +275,10 @@ class EditorStartup {
     })
 
     addListenerMulti($id('text_multiline'), 'keyup input', (evt) => {
+      const selected = this.svgCanvas.getSelectedElements()[0]
+      if (selected?.tagName === 'text') {
+        selected.setAttribute('data-svgedit-multiline', 'true')
+      }
       this.svgCanvas.setTextContent(evt.currentTarget.value)
     })
 
