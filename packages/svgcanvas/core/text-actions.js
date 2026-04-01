@@ -13,6 +13,7 @@ import {
   getBBox as utilsGetBBox
 } from './utilities.js'
 import { supportsGoodTextCharPos } from '../common/browser.js'
+import { applyMultilineText, getRawMultilineText, isMultilineTextElement } from './multiline-text.js'
 
 let svgCanvas = null
 
@@ -370,6 +371,9 @@ class TextActions {
    */
   select (target, x, y) {
     this.#curtext = target
+    if (isMultilineTextElement(target)) {
+      return
+    }
     svgCanvas.textActions.toEditMode(x, y)
   }
 
@@ -379,6 +383,9 @@ class TextActions {
    */
   start (elem) {
     this.#curtext = elem
+    if (isMultilineTextElement(elem)) {
+      return
+    }
     svgCanvas.textActions.toEditMode()
   }
 
@@ -504,6 +511,9 @@ class TextActions {
       svgCanvas.call('selected', [this.#curtext])
       svgCanvas.addToSelection([this.#curtext], true)
     }
+    const committedText = this.#textinput.value
+    applyMultilineText(this.#curtext, committedText)
+
     if (!this.#curtext?.textContent.length) {
       // No content, so delete
       svgCanvas.deleteSelectedElements()
@@ -566,6 +576,8 @@ class TextActions {
     // This fixes the issue where text cursor appears in wrong position
     // when editing text inside a group with transforms
     this.#matrix = this.#getAccumulatedMatrix(this.#curtext)
+
+    this.#textinput.value = getRawMultilineText(this.#curtext)
 
     this.#chardata = []
     this.#chardata.length = len

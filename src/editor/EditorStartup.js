@@ -273,6 +273,10 @@ class EditorStartup {
       this.svgCanvas.setTextContent(evt.currentTarget.value)
     })
 
+    addListenerMulti($id('text_multiline'), 'keyup input', (evt) => {
+      this.svgCanvas.setTextContent(evt.currentTarget.value)
+    })
+
     $id('link_url').addEventListener('change', (evt) => {
       if (evt.currentTarget.value.length) {
         this.svgCanvas.setLinkURL(evt.currentTarget.value)
