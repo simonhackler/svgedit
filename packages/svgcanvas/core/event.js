@@ -28,6 +28,9 @@ const {
 
 let svgCanvas = null
 let moveSelectionThresholdReached = false
+const MIN_TEXT_FRAME_SIZE = 5
+const DEFAULT_TEXT_FRAME_WIDTH = 240
+const DEFAULT_TEXT_FRAME_HEIGHT = 120
 
 /**
 * @function module:undo.init
@@ -347,10 +350,32 @@ const mouseMoveEvent = (evt) => {
       break
     }
     case 'text': {
-      assignAttributes(shape, {
-        x,
-        y
-      }, 1000)
+      if (svgCanvas.useMultilineText) {
+        const frameX = Math.min(svgCanvas.getStartX(), x)
+        const frameY = Math.min(svgCanvas.getStartY(), y)
+        let frameWidth = Math.abs(x - svgCanvas.getStartX())
+        let frameHeight = Math.abs(y - svgCanvas.getStartY())
+
+        if (frameWidth < MIN_TEXT_FRAME_SIZE) {
+          frameWidth = DEFAULT_TEXT_FRAME_WIDTH
+        }
+        if (frameHeight < MIN_TEXT_FRAME_SIZE) {
+          frameHeight = DEFAULT_TEXT_FRAME_HEIGHT
+        }
+
+        const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
+        assignAttributes(shape, {
+          x: frameX,
+          y: frameY + fontSize,
+          'data-svgedit-wrap-width': frameWidth,
+          'data-svgedit-wrap-height': frameHeight
+        }, 1000)
+      } else {
+        assignAttributes(shape, {
+          x,
+          y
+        }, 1000)
+      }
       break
     }
     case 'line': {
@@ -872,6 +897,25 @@ const mouseUpEvent = (evt) => {
     case 'text':
       keep = true
       if (svgCanvas.useMultilineText) {
+        const startX = svgCanvas.getStartX()
+        const startY = svgCanvas.getStartY()
+        const frameX = Number(element.getAttribute('x')) || startX
+        const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
+        const frameY = (Number(element.getAttribute('y')) || (startY + fontSize)) - fontSize
+        let frameWidth = Number(element.getAttribute('data-svgedit-wrap-width')) || 0
+        let frameHeight = Number(element.getAttribute('data-svgedit-wrap-height')) || 0
+
+        if (frameWidth < MIN_TEXT_FRAME_SIZE) {
+          frameWidth = DEFAULT_TEXT_FRAME_WIDTH
+          element.setAttribute('x', String(frameX))
+        }
+        if (frameHeight < MIN_TEXT_FRAME_SIZE) {
+          frameHeight = DEFAULT_TEXT_FRAME_HEIGHT
+          element.setAttribute('y', String(frameY + fontSize))
+        }
+
+        element.setAttribute('data-svgedit-wrap-width', String(frameWidth))
+        element.setAttribute('data-svgedit-wrap-height', String(frameHeight))
         enableMultilineTextElement(element)
         svgCanvas.selectOnly([element])
       } else {
@@ -1388,7 +1432,7 @@ const mouseDownEvent = (evt) => {
           'stroke-width': svgCanvas.getCurText('stroke_width'),
           'font-size': svgCanvas.getCurText('font_size'),
           'font-family': svgCanvas.getCurText('font_family'),
-          'text-anchor': 'middle',
+          'text-anchor': svgCanvas.useMultilineText ? 'start' : 'middle',
           'xml:space': 'preserve',
           opacity: curShape.opacity
         }

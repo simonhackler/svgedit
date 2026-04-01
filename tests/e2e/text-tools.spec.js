@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures.js'
-import { setSvgSource, visitAndApproveStorage } from './helpers.js'
+import { dragOnCanvas, setSvgSource, visitAndApproveStorage } from './helpers.js'
 
 test.describe('Text tools', () => {
   test.beforeEach(async ({ page }) => {
@@ -45,5 +45,27 @@ test.describe('Text tools', () => {
     await firstText.click()
     await page.locator('#tool_bold').click()
     await page.locator('#tool_italic').click()
+  })
+
+  test('multiline tool drag creates wrapped frame metadata and tspans', async ({ page }) => {
+    await page.locator('#tool_text_multiline').click()
+    await dragOnCanvas(page, { x: 80, y: 100 }, { x: 260, y: 220 })
+
+    const textNodes = page.locator('#svgcontent text')
+    await expect(textNodes).toHaveCount(1)
+    const textNode = textNodes.first()
+    await expect(textNode).toHaveAttribute('data-svgedit-multiline', 'true')
+
+    const wrapWidth = await textNode.getAttribute('data-svgedit-wrap-width')
+    const wrapHeight = await textNode.getAttribute('data-svgedit-wrap-height')
+    expect(Number(wrapWidth)).toBeGreaterThan(100)
+    expect(Number(wrapHeight)).toBeGreaterThan(50)
+
+    const multilineInput = page.locator('#text_multiline')
+    await multilineInput.fill('first line\nsecond line')
+
+    await expect(textNode.locator('tspan')).toHaveCount(2)
+    await expect(textNode.locator('tspan').nth(0)).toHaveText('first line')
+    await expect(textNode.locator('tspan').nth(1)).toHaveText('second line')
   })
 })

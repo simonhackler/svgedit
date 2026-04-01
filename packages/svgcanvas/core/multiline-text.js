@@ -3,8 +3,10 @@ import { NS } from './namespaces.js'
 
 const RAW_TEXT_ATTR = 'data-svgedit-raw-text'
 const WRAP_WIDTH_ATTR = 'data-svgedit-wrap-width'
+const WRAP_HEIGHT_ATTR = 'data-svgedit-wrap-height'
 const LINE_HEIGHT_ATTR = 'data-svgedit-line-height'
 const MULTILINE_ATTR = 'data-svgedit-multiline'
+const OVERFLOW_ATTR = 'data-svgedit-text-overflow'
 
 const toNumber = (value, fallback) => {
   const parsed = Number.parseFloat(value)
@@ -70,6 +72,13 @@ export const applyMultilineText = (textElem, rawText) => {
   })
 
   textElem.setAttribute(RAW_TEXT_ATTR, normalizedText)
+  const wrapHeight = toNumber(textElem.getAttribute(WRAP_HEIGHT_ATTR), Number.NaN)
+  if (Number.isFinite(wrapHeight) && wrapHeight > 0) {
+    const estimatedHeight = Math.max(lines.length, 1) * lineHeight
+    textElem.setAttribute(OVERFLOW_ATTR, estimatedHeight > wrapHeight ? 'true' : 'false')
+  } else {
+    textElem.removeAttribute(OVERFLOW_ATTR)
+  }
   if (forceMultiline || hasHardBreaks || hasWrapWidth) {
     textElem.setAttribute(MULTILINE_ATTR, 'true')
   }
