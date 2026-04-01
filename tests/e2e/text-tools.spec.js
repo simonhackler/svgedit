@@ -6,6 +6,27 @@ test.describe('Text tools', () => {
     await visitAndApproveStorage(page)
   })
 
+
+
+  test('multiline input renders tspans', async ({ page }) => {
+    await setSvgSource(page, `<svg width="640" height="480" xmlns="http://www.w3.org/2000/svg">
+      <g class="layer">
+        <title>Layer 1</title>
+        <text id="svg_1" x="120" y="120" data-svgedit-multiline="true">A</text>
+      </g>
+    </svg>`)
+
+    const text = page.locator('#svg_1')
+    await text.click()
+
+    const multilineInput = page.locator('#text_multiline')
+    await multilineInput.fill('first line\nsecond line')
+
+    await expect(page.locator('#svg_1 tspan')).toHaveCount(2)
+    await expect(page.locator('#svg_1 tspan').nth(0)).toHaveText('first line')
+    await expect(page.locator('#svg_1 tspan').nth(1)).toHaveText('second line')
+  })
+
   test('creates and styles text', async ({ page }) => {
     await setSvgSource(page, `<svg width="640" height="480" xmlns="http://www.w3.org/2000/svg">
       <g class="layer">
