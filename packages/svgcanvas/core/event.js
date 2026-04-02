@@ -350,19 +350,22 @@ const mouseMoveEvent = (evt) => {
       break
     }
     case 'textmultiline': {
-      const frameX = Math.min(svgCanvas.getStartX(), x)
-      const frameY = Math.min(svgCanvas.getStartY(), y)
-      const frameWidth = Math.abs(x - svgCanvas.getStartX())
-      const frameHeight = Math.abs(y - svgCanvas.getStartY())
-      if (svgCanvas.getRubberBox()) {
-        assignAttributes(svgCanvas.getRubberBox(), {
-          x: frameX * zoom,
-          y: frameY * zoom,
-          width: frameWidth * zoom,
-          height: frameHeight * zoom,
-          display: 'inline'
-        }, 100)
+      let w = Math.abs(x - svgCanvas.getStartX())
+      let h = Math.abs(y - svgCanvas.getStartY())
+      let newX = Math.min(svgCanvas.getStartX(), x)
+      let newY = Math.min(svgCanvas.getStartY(), y)
+      if (svgCanvas.getCurConfig().gridSnapping) {
+        w = snapToGrid(w)
+        h = snapToGrid(h)
+        newX = snapToGrid(newX)
+        newY = snapToGrid(newY)
       }
+      assignAttributes(shape, {
+        width: w,
+        height: h,
+        x: newX,
+        y: newY
+      }, 1000)
       break
     }
     case 'text': {
@@ -952,13 +955,10 @@ const mouseUpEvent = (evt) => {
       break
     case 'textmultiline': {
       keep = true
-      svgCanvas.getRubberBox()?.setAttribute('display', 'none')
-      const startX = svgCanvas.getStartX()
-      const startY = svgCanvas.getStartY()
-      let frameWidth = Math.abs(x - startX)
-      let frameHeight = Math.abs(y - startY)
-      const frameX = Math.min(startX, x)
-      const frameY = Math.min(startY, y)
+      let frameWidth = Number(element.getAttribute('width')) || 0
+      let frameHeight = Number(element.getAttribute('height')) || 0
+      const frameX = Number(element.getAttribute('x')) || svgCanvas.getStartX()
+      const frameY = Number(element.getAttribute('y')) || svgCanvas.getStartY()
       const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
 
       if (frameWidth < MIN_TEXT_FRAME_SIZE) {
@@ -968,6 +968,7 @@ const mouseUpEvent = (evt) => {
         frameHeight = DEFAULT_TEXT_FRAME_HEIGHT
       }
 
+      element.remove()
       element = svgCanvas.addSVGElementsFromJson({
         element: 'text',
         curStyles: true,
@@ -1522,16 +1523,20 @@ const mouseDownEvent = (evt) => {
       break
     case 'textmultiline':
       svgCanvas.setStarted(true)
-      if (!svgCanvas.getRubberBox()) {
-        svgCanvas.setRubberBox(svgCanvas.selectorManager.getRubberBandBox())
-      }
-      assignAttributes(svgCanvas.getRubberBox(), {
-        x: realX * zoom,
-        y: realY * zoom,
-        width: 0,
-        height: 0,
-        display: 'inline'
-      }, 100)
+      svgCanvas.addSVGElementsFromJson({
+        element: 'rect',
+        curStyles: true,
+        attr: {
+          x,
+          y,
+          width: 0,
+          height: 0,
+          id: svgCanvas.getNextId(),
+          fill: 'none',
+          opacity: curShape.opacity / 2,
+          style: 'pointer-events:none'
+        }
+      })
       break
     case 'path':
     // Fall through
