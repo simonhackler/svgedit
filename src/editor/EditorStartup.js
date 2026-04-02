@@ -785,6 +785,7 @@ class EditorStartup {
         cs = `url("./images/cursors/${mode}_cursor.svg"), crosshair`
         break
       case 'text':
+      case 'textmultiline':
         // #TODO: Cursor should be changed back to default after text element was created
         cs = 'text'
         break
@@ -801,7 +802,7 @@ class EditorStartup {
   cancelTool () {
     const mode = this.svgCanvas.getMode()
     // list of modes that are currently save to cancel
-    const modesToCancel = ['zoom', 'rect', 'square', 'circle', 'ellipse', 'line', 'text', 'star', 'polygon', 'shapelib', 'image']
+    const modesToCancel = ['zoom', 'rect', 'square', 'circle', 'ellipse', 'line', 'text', 'textmultiline', 'star', 'polygon', 'shapelib', 'image']
     if (modesToCancel.includes(mode)) {
       this.leftPanel.clickSelect()
     }

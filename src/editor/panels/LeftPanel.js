@@ -180,7 +180,7 @@ class LeftPanel {
   clickTextMultiline () {
     if (this.updateLeftPanel('tool_text_multiline')) {
       this.editor.svgCanvas.useMultilineText = true
-      this.editor.svgCanvas.setMode('text')
+      this.editor.svgCanvas.setMode('textmultiline')
     }
   }
 

@@ -349,6 +349,22 @@ const mouseMoveEvent = (evt) => {
       }, 100)
       break
     }
+    case 'textmultiline': {
+      const frameX = Math.min(svgCanvas.getStartX(), x)
+      const frameY = Math.min(svgCanvas.getStartY(), y)
+      const frameWidth = Math.abs(x - svgCanvas.getStartX())
+      const frameHeight = Math.abs(y - svgCanvas.getStartY())
+      if (svgCanvas.getRubberBox()) {
+        assignAttributes(svgCanvas.getRubberBox(), {
+          x: frameX * zoom,
+          y: frameY * zoom,
+          width: frameWidth * zoom,
+          height: frameHeight * zoom,
+          display: 'inline'
+        }, 100)
+      }
+      break
+    }
     case 'text': {
       if (svgCanvas.useMultilineText) {
         const frameX = Math.min(svgCanvas.getStartX(), x)
@@ -927,6 +943,47 @@ const mouseUpEvent = (evt) => {
         svgCanvas.textActions.start(element)
       }
       break
+    case 'textmultiline': {
+      keep = true
+      svgCanvas.getRubberBox()?.setAttribute('display', 'none')
+      const startX = svgCanvas.getStartX()
+      const startY = svgCanvas.getStartY()
+      let frameWidth = Math.abs(x - startX)
+      let frameHeight = Math.abs(y - startY)
+      const frameX = Math.min(startX, x)
+      const frameY = Math.min(startY, y)
+      const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
+
+      if (frameWidth < MIN_TEXT_FRAME_SIZE) {
+        frameWidth = DEFAULT_TEXT_FRAME_WIDTH
+      }
+      if (frameHeight < MIN_TEXT_FRAME_SIZE) {
+        frameHeight = DEFAULT_TEXT_FRAME_HEIGHT
+      }
+
+      element = svgCanvas.addSVGElementsFromJson({
+        element: 'text',
+        curStyles: true,
+        attr: {
+          x: frameX,
+          y: frameY + fontSize,
+          id: svgCanvas.getNextId(),
+          fill: svgCanvas.getCurText('fill'),
+          'stroke-width': svgCanvas.getCurText('stroke_width'),
+          'font-size': svgCanvas.getCurText('font_size'),
+          'font-family': svgCanvas.getCurText('font_family'),
+          'text-anchor': 'start',
+          'xml:space': 'preserve',
+          opacity: svgCanvas.getStyle().opacity,
+          'data-svgedit-wrap-width': frameWidth,
+          'data-svgedit-wrap-height': frameHeight
+        }
+      })
+
+      enableMultilineTextElement(element)
+      svgCanvas.selectOnly([element])
+      break
+    }
     case 'path': {
       // set element to null here so that it is not removed nor finalized
       element = null
@@ -1454,6 +1511,19 @@ const mouseDownEvent = (evt) => {
         }
       })
       // newText.textContent = 'text';
+      break
+    case 'textmultiline':
+      svgCanvas.setStarted(true)
+      if (!svgCanvas.getRubberBox()) {
+        svgCanvas.setRubberBox(svgCanvas.selectorManager.getRubberBandBox())
+      }
+      assignAttributes(svgCanvas.getRubberBox(), {
+        x: realX * zoom,
+        y: realY * zoom,
+        width: 0,
+        height: 0,
+        display: 'inline'
+      }, 100)
       break
     case 'path':
     // Fall through
