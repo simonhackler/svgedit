@@ -372,14 +372,6 @@ const mouseMoveEvent = (evt) => {
         const frameWidth = Math.abs(x - svgCanvas.getStartX())
         const frameHeight = Math.abs(y - svgCanvas.getStartY())
 
-        const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
-        assignAttributes(shape, {
-          x: frameX,
-          y: frameY + fontSize,
-          'data-svgedit-wrap-width': frameWidth,
-          'data-svgedit-wrap-height': frameHeight
-        }, 1000)
-
         if (svgCanvas.getRubberBox()) {
           assignAttributes(svgCanvas.getRubberBox(), {
             x: frameX * zoom,
@@ -919,23 +911,38 @@ const mouseUpEvent = (evt) => {
         svgCanvas.getRubberBox()?.setAttribute('display', 'none')
         const startX = svgCanvas.getStartX()
         const startY = svgCanvas.getStartY()
-        const frameX = Number(element.getAttribute('x')) || startX
+        let frameWidth = Math.abs(x - startX)
+        let frameHeight = Math.abs(y - startY)
+        const frameX = Math.min(startX, x)
+        const frameY = Math.min(startY, y)
         const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
-        const frameY = (Number(element.getAttribute('y')) || (startY + fontSize)) - fontSize
-        let frameWidth = Number(element.getAttribute('data-svgedit-wrap-width')) || 0
-        let frameHeight = Number(element.getAttribute('data-svgedit-wrap-height')) || 0
 
         if (frameWidth < MIN_TEXT_FRAME_SIZE) {
           frameWidth = DEFAULT_TEXT_FRAME_WIDTH
-          element.setAttribute('x', String(frameX))
         }
         if (frameHeight < MIN_TEXT_FRAME_SIZE) {
           frameHeight = DEFAULT_TEXT_FRAME_HEIGHT
-          element.setAttribute('y', String(frameY + fontSize))
         }
 
-        element.setAttribute('data-svgedit-wrap-width', String(frameWidth))
-        element.setAttribute('data-svgedit-wrap-height', String(frameHeight))
+        element = svgCanvas.addSVGElementsFromJson({
+          element: 'text',
+          curStyles: true,
+          attr: {
+            x: frameX,
+            y: frameY + fontSize,
+            id: svgCanvas.getNextId(),
+            fill: svgCanvas.getCurText('fill'),
+            'stroke-width': svgCanvas.getCurText('stroke_width'),
+            'font-size': svgCanvas.getCurText('font_size'),
+            'font-family': svgCanvas.getCurText('font_family'),
+            'text-anchor': 'start',
+            'xml:space': 'preserve',
+            opacity: svgCanvas.getStyle().opacity,
+            'data-svgedit-wrap-width': frameWidth,
+            'data-svgedit-wrap-height': frameHeight
+          }
+        })
+
         enableMultilineTextElement(element)
         svgCanvas.selectOnly([element])
       } else {
@@ -1493,6 +1500,7 @@ const mouseDownEvent = (evt) => {
           height: 0,
           display: 'inline'
         }, 100)
+        break
       }
       /* const newText = */ svgCanvas.addSVGElementsFromJson({
         element: 'text',
