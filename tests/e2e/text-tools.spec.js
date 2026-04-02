@@ -58,8 +58,8 @@ test.describe('Text tools', () => {
 
     const wrapWidth = await textNode.getAttribute('data-svgedit-wrap-width')
     const wrapHeight = await textNode.getAttribute('data-svgedit-wrap-height')
-    expect(Number(wrapWidth)).toBeGreaterThan(100)
-    expect(Number(wrapHeight)).toBeGreaterThan(50)
+    expect(Number(wrapWidth)).toBe(180)
+    expect(Number(wrapHeight)).toBe(120)
 
     const multilineInput = page.locator('#text_multiline')
     await multilineInput.fill('first line\nsecond line')

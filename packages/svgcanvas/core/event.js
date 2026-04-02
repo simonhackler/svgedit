@@ -363,6 +363,16 @@ const mouseMoveEvent = (evt) => {
           'data-svgedit-wrap-width': frameWidth,
           'data-svgedit-wrap-height': frameHeight
         }, 1000)
+
+        if (svgCanvas.getRubberBox()) {
+          assignAttributes(svgCanvas.getRubberBox(), {
+            x: frameX * zoom,
+            y: frameY * zoom,
+            width: frameWidth * zoom,
+            height: frameHeight * zoom,
+            display: 'inline'
+          }, 100)
+        }
       } else {
         assignAttributes(shape, {
           x,
@@ -890,6 +900,7 @@ const mouseUpEvent = (evt) => {
     case 'text':
       keep = true
       if (svgCanvas.useMultilineText) {
+        svgCanvas.getRubberBox()?.setAttribute('display', 'none')
         const startX = svgCanvas.getStartX()
         const startY = svgCanvas.getStartY()
         const frameX = Number(element.getAttribute('x')) || startX
@@ -1414,6 +1425,18 @@ const mouseDownEvent = (evt) => {
       break
     case 'text':
       svgCanvas.setStarted(true)
+      if (svgCanvas.useMultilineText) {
+        if (!svgCanvas.getRubberBox()) {
+          svgCanvas.setRubberBox(svgCanvas.selectorManager.getRubberBandBox())
+        }
+        assignAttributes(svgCanvas.getRubberBox(), {
+          x: realX * zoom,
+          y: realY * zoom,
+          width: 0,
+          height: 0,
+          display: 'inline'
+        }, 100)
+      }
       /* const newText = */ svgCanvas.addSVGElementsFromJson({
         element: 'text',
         curStyles: true,
