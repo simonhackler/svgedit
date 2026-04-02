@@ -353,15 +353,8 @@ const mouseMoveEvent = (evt) => {
       if (svgCanvas.useMultilineText) {
         const frameX = Math.min(svgCanvas.getStartX(), x)
         const frameY = Math.min(svgCanvas.getStartY(), y)
-        let frameWidth = Math.abs(x - svgCanvas.getStartX())
-        let frameHeight = Math.abs(y - svgCanvas.getStartY())
-
-        if (frameWidth < MIN_TEXT_FRAME_SIZE) {
-          frameWidth = DEFAULT_TEXT_FRAME_WIDTH
-        }
-        if (frameHeight < MIN_TEXT_FRAME_SIZE) {
-          frameHeight = DEFAULT_TEXT_FRAME_HEIGHT
-        }
+        const frameWidth = Math.abs(x - svgCanvas.getStartX())
+        const frameHeight = Math.abs(y - svgCanvas.getStartY())
 
         const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
         assignAttributes(shape, {

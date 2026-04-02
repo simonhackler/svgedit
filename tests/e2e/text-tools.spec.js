@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures.js'
-import { dragOnCanvas, setSvgSource, visitAndApproveStorage } from './helpers.js'
+import { clickCanvas, dragOnCanvas, setSvgSource, visitAndApproveStorage } from './helpers.js'
 
 test.describe('Text tools', () => {
   test.beforeEach(async ({ page }) => {
@@ -67,5 +67,19 @@ test.describe('Text tools', () => {
     await expect(textNode.locator('tspan')).toHaveCount(2)
     await expect(textNode.locator('tspan').nth(0)).toHaveText('first line')
     await expect(textNode.locator('tspan').nth(1)).toHaveText('second line')
+  })
+
+  test('multiline click creates default frame dimensions', async ({ page }) => {
+    await page.locator('#tool_text_multiline').click()
+    await clickCanvas(page, { x: 140, y: 160 })
+
+    const textNode = page.locator('#svgcontent text').first()
+    await expect(textNode).toHaveAttribute('data-svgedit-multiline', 'true')
+
+    const wrapWidth = Number(await textNode.getAttribute('data-svgedit-wrap-width'))
+    const wrapHeight = Number(await textNode.getAttribute('data-svgedit-wrap-height'))
+
+    expect(wrapWidth).toBe(240)
+    expect(wrapHeight).toBe(120)
   })
 })
