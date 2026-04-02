@@ -85,8 +85,7 @@ export class Selector {
         id: `selectedFrame${this.id}`,
         fill: 'none',
         stroke: '#0A8',
-        'stroke-width': '1',
-        'stroke-dasharray': '3,3',
+        'stroke-width': '2',
         style: 'pointer-events:none'
       }
     })
@@ -200,6 +199,7 @@ export class Selector {
 
     const wrapWidth = Number.parseFloat(selected.getAttribute('data-svgedit-wrap-width'))
     const wrapHeight = Number.parseFloat(selected.getAttribute('data-svgedit-wrap-height'))
+    const isOverflowing = selected.getAttribute('data-svgedit-text-overflow') === 'true'
     const hasFrame = tagName === 'text' && Number.isFinite(wrapWidth) && wrapWidth > 0 &&
       Number.isFinite(wrapHeight) && wrapHeight > 0
 
@@ -301,6 +301,7 @@ export class Selector {
 
         const frameD = `M${fminx},${fminy} L${fmaxx},${fminy} ${fmaxx},${fmaxy} ${fminx},${fmaxy}z`
         this.frameRect.setAttribute('d', frameD)
+        this.frameRect.setAttribute('stroke', isOverflowing ? '#D11' : '#0A8')
         this.frameRect.setAttribute('display', 'inline')
       } else {
         this.frameRect.setAttribute('display', 'none')

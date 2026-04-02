@@ -8,7 +8,7 @@ import {
   assignAttributes, cleanupElement, getElement, getRotationAngle, snapToGrid, walkTree,
   preventClickDefault, setHref, getBBox, findDefs
 } from './utilities.js'
-import { enableMultilineTextElement } from './multiline-text.js'
+import { enableMultilineTextElement, isMultilineTextElement } from './multiline-text.js'
 import {
   convertAttrs
 } from './units.js'
@@ -1163,6 +1163,9 @@ const dblClickEvent = (evt) => {
   const { tagName } = mouseTarget
 
   if (tagName === 'text' && svgCanvas.getCurrentMode() !== 'textedit') {
+    if (isMultilineTextElement(mouseTarget)) {
+      return
+    }
     const pt = transformPoint(evt.clientX, evt.clientY, svgCanvas.getrootSctm())
     svgCanvas.textActions.select(mouseTarget, pt.x, pt.y)
   }
