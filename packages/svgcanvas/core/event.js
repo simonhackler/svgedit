@@ -6,7 +6,7 @@
  */
 import {
   assignAttributes, cleanupElement, getElement, getRotationAngle, snapToGrid, walkTree,
-  preventClickDefault, setHref, getBBox
+  preventClickDefault, setHref, getBBox, findDefs
 } from './utilities.js'
 import { enableMultilineTextElement } from './multiline-text.js'
 import {
@@ -960,6 +960,7 @@ const mouseUpEvent = (evt) => {
       const frameX = Number(element.getAttribute('x')) || svgCanvas.getStartX()
       const frameY = Number(element.getAttribute('y')) || svgCanvas.getStartY()
       const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
+      const frameRect = element
 
       if (frameWidth < MIN_TEXT_FRAME_SIZE) {
         frameWidth = DEFAULT_TEXT_FRAME_WIDTH
@@ -968,7 +969,21 @@ const mouseUpEvent = (evt) => {
         frameHeight = DEFAULT_TEXT_FRAME_HEIGHT
       }
 
-      element.remove()
+      frameRect.setAttribute('x', String(frameX))
+      frameRect.setAttribute('y', String(frameY))
+      frameRect.setAttribute('width', String(frameWidth))
+      frameRect.setAttribute('height', String(frameHeight))
+      frameRect.setAttribute('fill', 'none')
+      frameRect.setAttribute('stroke', 'none')
+      frameRect.setAttribute('visibility', 'hidden')
+      frameRect.setAttribute('pointer-events', 'none')
+      frameRect.setAttribute('data-svgedit-text-frame', 'true')
+      frameRect.setAttribute('data-svgedit-frame-for', 'shape-inside')
+      frameRect.removeAttribute('style')
+      const frameId = frameRect.getAttribute('id') || svgCanvas.getNextId()
+      frameRect.setAttribute('id', frameId)
+      findDefs().append(frameRect)
+
       element = svgCanvas.addSVGElementsFromJson({
         element: 'text',
         curStyles: true,
@@ -979,14 +994,19 @@ const mouseUpEvent = (evt) => {
           fill: svgCanvas.getCurText('fill'),
           'stroke-width': svgCanvas.getCurText('stroke_width'),
           'font-size': svgCanvas.getCurText('font_size'),
-          'font-family': svgCanvas.getCurText('font_family'),
-          'text-anchor': 'start',
-          'xml:space': 'preserve',
-          opacity: svgCanvas.getStyle().opacity,
-          'data-svgedit-wrap-width': frameWidth,
-          'data-svgedit-wrap-height': frameHeight
-        }
-      })
+            'font-family': svgCanvas.getCurText('font_family'),
+            'text-anchor': 'start',
+            'xml:space': 'preserve',
+            opacity: svgCanvas.getStyle().opacity,
+            'data-svgedit-wrap-width': frameWidth,
+            'data-svgedit-wrap-height': frameHeight,
+            'data-svgedit-shape-inside-ref': `#${frameId}`
+          }
+        })
+
+      const existingStyle = element.getAttribute('style') || ''
+      const shapeInsideStyle = `shape-inside:url(#${frameId});`
+      element.setAttribute('style', `${existingStyle}${existingStyle && !existingStyle.trim().endsWith(';') ? ';' : ''}${shapeInsideStyle}`)
 
       enableMultilineTextElement(element)
       svgCanvas.selectOnly([element])
