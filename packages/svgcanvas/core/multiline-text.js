@@ -58,12 +58,20 @@ export const applyMultilineText = (textElem, rawText) => {
   const lineHeight = getLineHeight(textElem)
   const wrapWidth = getWrapWidth(textElem)
   const prepared = prepareWithSegments(normalizedText, font, { whiteSpace: 'pre-wrap' })
-  const { lines } = layoutWithLines(prepared, wrapWidth, lineHeight)
+  const { lineCount, lines } = layoutWithLines(prepared, wrapWidth, lineHeight)
+  const wrapHeight = toNumber(textElem.getAttribute(WRAP_HEIGHT_ATTR), Number.NaN)
+  let renderedLines = lines
+  if (Number.isFinite(wrapHeight) && wrapHeight > 0 && lineHeight > 0) {
+    const maxLines = Math.max(1, Math.floor(wrapHeight / lineHeight))
+    if (lines.length > maxLines) {
+      renderedLines = lines.slice(0, maxLines)
+    }
+  }
 
   clearTextChildren(textElem)
   const x = textElem.getAttribute('x') || '0'
 
-  lines.forEach((line, index) => {
+  renderedLines.forEach((line, index) => {
     const tspan = document.createElementNS(NS.SVG, 'tspan')
     tspan.setAttribute('x', x)
     tspan.setAttribute('dy', index === 0 ? '0' : String(lineHeight))
@@ -72,9 +80,8 @@ export const applyMultilineText = (textElem, rawText) => {
   })
 
   textElem.setAttribute(RAW_TEXT_ATTR, normalizedText)
-  const wrapHeight = toNumber(textElem.getAttribute(WRAP_HEIGHT_ATTR), Number.NaN)
   if (Number.isFinite(wrapHeight) && wrapHeight > 0) {
-    const estimatedHeight = Math.max(lines.length, 1) * lineHeight
+    const estimatedHeight = Math.max(lineCount, 1) * lineHeight
     textElem.setAttribute(OVERFLOW_ATTR, estimatedHeight > wrapHeight ? 'true' : 'false')
   } else {
     textElem.removeAttribute(OVERFLOW_ATTR)

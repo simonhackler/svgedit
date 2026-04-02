@@ -994,15 +994,15 @@ const mouseUpEvent = (evt) => {
           fill: svgCanvas.getCurText('fill'),
           'stroke-width': svgCanvas.getCurText('stroke_width'),
           'font-size': svgCanvas.getCurText('font_size'),
-            'font-family': svgCanvas.getCurText('font_family'),
-            'text-anchor': 'start',
-            'xml:space': 'preserve',
-            opacity: svgCanvas.getStyle().opacity,
-            'data-svgedit-wrap-width': frameWidth,
-            'data-svgedit-wrap-height': frameHeight,
-            'data-svgedit-shape-inside-ref': `#${frameId}`
-          }
-        })
+          'font-family': svgCanvas.getCurText('font_family'),
+          'text-anchor': 'start',
+          'xml:space': 'preserve',
+          opacity: svgCanvas.getStyle().opacity,
+          'data-svgedit-wrap-width': frameWidth,
+          'data-svgedit-wrap-height': frameHeight,
+          'data-svgedit-shape-inside-ref': `#${frameId}`
+        }
+      })
 
       const existingStyle = element.getAttribute('style') || ''
       const shapeInsideStyle = `shape-inside:url(#${frameId});`
