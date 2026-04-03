@@ -206,6 +206,7 @@ class EditorStartup {
     this.svgCanvas.bind('afterClear', this.afterClear.bind(this))
 
     this.svgCanvas.textActions.setInputElem($id('text'))
+    this.svgCanvas.textActions.setMultilineInputElem($id('text_multiline'))
     this.svgCanvas.useMultilineText = false
 
     this.setBackground(this.configObj.pref('bkgd_color'), this.configObj.pref('bkgd_url'))
@@ -423,7 +424,12 @@ class EditorStartup {
         self.workarea.removeEventListener('mousedown', unfocus)
         // Go back to selecting text if in textedit mode
         if (self.svgCanvas.getMode() === 'textedit') {
-          $id('text').focus()
+          const selected = self.svgCanvas.getSelectedElements()[0]
+          const input = selected?.tagName === 'text' &&
+            selected.getAttribute('data-svgedit-multiline') === 'true'
+            ? $id('text_multiline')
+            : $id('text')
+          input.focus()
         }
       })
     })

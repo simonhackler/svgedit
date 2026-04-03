@@ -22,12 +22,18 @@ async function expectBackedFrame (page, textNode, expected) {
   await expect(frame).toHaveAttribute('height', String(expected.height))
 }
 
+async function fillMultilineText (page, lines) {
+  const editor = page.locator('#text_multiline')
+  await expect(editor).toBeVisible()
+  await editor.fill(lines.join('\n'))
+}
+
 test.describe('Multiline text', () => {
   test.beforeEach(async ({ page }) => {
     await visitAndApproveStorage(page)
   })
 
-  test('multiline input renders tspans for an existing text element', async ({ page }) => {
+  test('multiline text edits in place for an existing text element', async ({ page }) => {
     await setSvgSource(page, `<svg width="640" height="480" xmlns="http://www.w3.org/2000/svg">
       <g class="layer">
         <title>Layer 1</title>
@@ -36,10 +42,9 @@ test.describe('Multiline text', () => {
     </svg>`)
 
     const text = page.locator('#svg_1')
-    await text.click()
+    await text.dblclick()
 
-    const multilineInput = page.locator('#text_multiline')
-    await multilineInput.fill('first line\nsecond line')
+    await fillMultilineText(page, ['first line', 'second line'])
 
     await expect(text.locator('tspan')).toHaveCount(2)
     await expect(text.locator('tspan').nth(0)).toHaveText('first line')
@@ -59,8 +64,7 @@ test.describe('Multiline text', () => {
     await expect(textNode).toHaveAttribute('data-svgedit-wrap-height', '120')
     await expectBackedFrame(page, textNode, { width: 180, height: 120 })
 
-    const multilineInput = page.locator('#text_multiline')
-    await multilineInput.fill('first line\nsecond line')
+    await fillMultilineText(page, ['first line', 'second line'])
 
     await expect(textNode.locator('tspan')).toHaveCount(2)
     await expect(textNode.locator('tspan').nth(0)).toHaveText('first line')
@@ -85,7 +89,8 @@ test.describe('Multiline text', () => {
     })
 
     const textNode = await getSelectedMultilineText(page)
-    await page.locator('#text_multiline').fill('one two three four five six seven eight')
+    await fillMultilineText(page, ['one two three four five six seven eight'])
+    await page.locator('#svgroot').click({ position: { x: 40, y: 40 } })
 
     const resizeGrip = page.locator('[id^="selectedTextResizeGrip"]')
     await expect(resizeGrip).toBeVisible()

@@ -12,7 +12,6 @@ import {
   applyMultilineText,
   enableMultilineTextElement,
   getRawMultilineText,
-  isMultilineTextElement,
   syncMultilineFrameRect
 } from './multiline-text.js'
 import {
@@ -980,6 +979,7 @@ const mouseUpEvent = (evt) => {
 
         enableMultilineTextElement(element)
         svgCanvas.selectOnly([element])
+        svgCanvas.textActions.start(element)
       } else {
         svgCanvas.selectOnly([element])
         svgCanvas.textActions.start(element)
@@ -1061,6 +1061,7 @@ const mouseUpEvent = (evt) => {
 
       enableMultilineTextElement(element)
       svgCanvas.selectOnly([element])
+      svgCanvas.textActions.start(element)
       break
     }
     case 'path': {
@@ -1214,9 +1215,6 @@ const dblClickEvent = (evt) => {
   const { tagName } = mouseTarget
 
   if (tagName === 'text' && svgCanvas.getCurrentMode() !== 'textedit') {
-    if (isMultilineTextElement(mouseTarget)) {
-      return
-    }
     const pt = transformPoint(evt.clientX, evt.clientY, svgCanvas.getrootSctm())
     svgCanvas.textActions.select(mouseTarget, pt.x, pt.y)
   }

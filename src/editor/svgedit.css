@@ -627,7 +627,19 @@ ul li.current {
 }
 
 #text_multiline {
-  width: 240px;
-  min-height: 64px;
-  margin-left: 8px;
+  display: none;
+  position: fixed;
+  min-width: 1px;
+  min-height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #3b82f6;
+  background: rgba(255, 255, 255, 0.96);
+  color: inherit;
+  box-sizing: border-box;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  z-index: 10;
 }

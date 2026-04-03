@@ -34,6 +34,8 @@ export const init = canvas => {
  */
 class TextActions {
   #curtext = null
+  #singlelineInput = null
+  #multilineInput = null
   #textinput = null
   #cursor = null
   #selblock = null
@@ -44,6 +46,74 @@ class TextActions {
   #lastX = null
   #lastY = null
   #allowDbl = false
+
+  #isEditingMultiline = () => isMultilineTextElement(this.#curtext)
+
+  #setActiveInput = () => {
+    this.#textinput = this.#isEditingMultiline()
+      ? (this.#multilineInput || this.#singlelineInput)
+      : this.#singlelineInput
+  }
+
+  #ptToViewport = (x, y) => {
+    const rootRect = svgCanvas.getSvgRoot().getBoundingClientRect()
+    const screenPoint = this.#ptToScreen(x, y)
+    return {
+      x: rootRect.left + screenPoint.x,
+      y: rootRect.top + screenPoint.y
+    }
+  }
+
+  #hideMultilineInput = () => {
+    if (!this.#multilineInput) {
+      return
+    }
+
+    Object.assign(this.#multilineInput.style, {
+      display: 'none',
+      left: '',
+      top: '',
+      width: '',
+      height: ''
+    })
+  }
+
+  #syncMultilineInput = () => {
+    if (!this.#isEditingMultiline() || !this.#textinput) {
+      return
+    }
+
+    const fontSize = Number(this.#curtext.getAttribute('font-size')) || 16
+    const lineHeight = Number(this.#curtext.getAttribute('data-svgedit-line-height')) || fontSize * 1.2
+    const frameX = Number(this.#curtext.getAttribute('x')) || 0
+    const frameY = (Number(this.#curtext.getAttribute('y')) || fontSize) - fontSize
+    const frameWidth = Math.max(Number(this.#curtext.getAttribute('data-svgedit-wrap-width')) || 1, 1)
+    const frameHeight = Math.max(Number(this.#curtext.getAttribute('data-svgedit-wrap-height')) || 1, 1)
+
+    const topLeft = this.#ptToViewport(frameX, frameY)
+    const topRight = this.#ptToViewport(frameX + frameWidth, frameY)
+    const bottomLeft = this.#ptToViewport(frameX, frameY + frameHeight)
+    const zoom = svgCanvas.getZoom()
+    const computedStyle = window.getComputedStyle(this.#curtext)
+
+    Object.assign(this.#textinput.style, {
+      position: 'fixed',
+      display: 'block',
+      left: `${topLeft.x}px`,
+      top: `${topLeft.y}px`,
+      width: `${Math.max(topRight.x - topLeft.x, 1)}px`,
+      height: `${Math.max(bottomLeft.y - topLeft.y, 1)}px`,
+      fontFamily: computedStyle.fontFamily || this.#curtext.getAttribute('font-family') || 'sans-serif',
+      fontSize: `${fontSize * zoom}px`,
+      fontStyle: computedStyle.fontStyle || this.#curtext.getAttribute('font-style') || 'normal',
+      fontWeight: computedStyle.fontWeight || this.#curtext.getAttribute('font-weight') || 'normal',
+      lineHeight: `${lineHeight * zoom}px`,
+      letterSpacing: computedStyle.letterSpacing,
+      wordSpacing: computedStyle.wordSpacing,
+      textAlign: computedStyle.textAlign || 'left',
+      color: computedStyle.fill || this.#curtext.getAttribute('fill') || '#000000'
+    })
+  }
 
   /**
    * Get the accumulated transformation matrix from the element up to the SVG content element.
@@ -371,9 +441,7 @@ class TextActions {
    */
   select (target, x, y) {
     this.#curtext = target
-    if (isMultilineTextElement(target)) {
-      return
-    }
+    svgCanvas.selectOnly?.([target])
     svgCanvas.textActions.toEditMode(x, y)
   }
 
@@ -383,9 +451,6 @@ class TextActions {
    */
   start (elem) {
     this.#curtext = elem
-    if (isMultilineTextElement(elem)) {
-      return
-    }
     svgCanvas.textActions.toEditMode()
   }
 
@@ -397,6 +462,10 @@ class TextActions {
    * @returns {void}
    */
   mouseDown (evt, mouseTarget, startX, startY) {
+    if (this.#isEditingMultiline()) {
+      this.#textinput.focus()
+      return
+    }
     const pt = this.#screenToPt(startX, startY)
 
     this.#textinput.focus()
@@ -413,6 +482,9 @@ class TextActions {
    * @returns {void}
    */
   mouseMove (mouseX, mouseY) {
+    if (this.#isEditingMultiline()) {
+      return
+    }
     const pt = this.#screenToPt(mouseX, mouseY)
     this.#setEndSelectionFromPoint(pt.x, pt.y)
   }
@@ -424,6 +496,12 @@ class TextActions {
    * @returns {void}
    */
   mouseUp (evt, mouseX, mouseY) {
+    if (this.#isEditingMultiline()) {
+      if (evt.target !== this.#curtext) {
+        svgCanvas.textActions.toSelectMode(true)
+      }
+      return
+    }
     const pt = this.#screenToPt(mouseX, mouseY)
 
     this.#setEndSelectionFromPoint(pt.x, pt.y, true)
@@ -470,6 +548,18 @@ class TextActions {
 
     this.#curtext.style.cursor = 'text'
 
+    if (this.#isEditingMultiline()) {
+      this.#syncMultilineInput()
+      this.#textinput.focus()
+      const index = this.#textinput.value.length
+      this.#textinput.setSelectionRange(index, index)
+
+      setTimeout(() => {
+        this.#allowDbl = true
+      }, 300)
+      return
+    }
+
     // if (supportsEditableText()) {
     //   curtext.setAttribute('editable', 'simple');
     //   return;
@@ -493,7 +583,10 @@ class TextActions {
    * @returns {void}
    */
   toSelectMode (selectElem) {
-    svgCanvas.setCurrentMode('select')
+    const nextMode = this.#isEditingMultiline() && svgCanvas.useMultilineText
+      ? 'textmultiline'
+      : 'select'
+    svgCanvas.setCurrentMode(nextMode)
     clearInterval(this.#blinker)
     this.#blinker = null
     if (this.#selblock) {
@@ -502,6 +595,7 @@ class TextActions {
     if (this.#cursor) {
       this.#cursor.setAttribute('visibility', 'hidden')
     }
+    this.#hideMultilineInput()
     this.#curtext.style.cursor = 'move'
 
     if (selectElem) {
@@ -533,7 +627,19 @@ class TextActions {
    * @returns {void}
    */
   setInputElem (elem) {
+    this.#singlelineInput = elem
     this.#textinput = elem
+    if (!this.#multilineInput) {
+      this.#multilineInput = elem
+    }
+  }
+
+  /**
+   * @param {Element} elem
+   * @returns {void}
+   */
+  setMultilineInputElem (elem) {
+    this.#multilineInput = elem
   }
 
   /**
@@ -543,6 +649,13 @@ class TextActions {
     if (svgCanvas.getCurrentMode() === 'textedit') {
       svgCanvas.textActions.toSelectMode()
     }
+  }
+
+  /**
+   * @returns {Element|null}
+   */
+  getCurrentTextElement () {
+    return this.#curtext || null
   }
 
   /**
@@ -577,7 +690,13 @@ class TextActions {
     // when editing text inside a group with transforms
     this.#matrix = this.#getAccumulatedMatrix(this.#curtext)
 
+    this.#setActiveInput()
     this.#textinput.value = getRawMultilineText(this.#curtext)
+
+    if (this.#isEditingMultiline()) {
+      this.#syncMultilineInput()
+      return
+    }
 
     this.#chardata = []
     this.#chardata.length = len
