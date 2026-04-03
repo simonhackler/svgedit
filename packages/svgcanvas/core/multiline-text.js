@@ -7,6 +7,8 @@ const WRAP_HEIGHT_ATTR = 'data-svgedit-wrap-height'
 const LINE_HEIGHT_ATTR = 'data-svgedit-line-height'
 const MULTILINE_ATTR = 'data-svgedit-multiline'
 const OVERFLOW_ATTR = 'data-svgedit-text-overflow'
+const EMPTY_LINE_ATTR = 'data-svgedit-empty-line'
+const EMPTY_LINE_PLACEHOLDER = ' '
 
 const toNumber = (value, fallback) => {
   const parsed = Number.parseFloat(value)
@@ -70,12 +72,19 @@ export const applyMultilineText = (textElem, rawText) => {
 
   clearTextChildren(textElem)
   const x = textElem.getAttribute('x') || '0'
+  const y = toNumber(textElem.getAttribute('y'), getLineHeight(textElem))
 
   renderedLines.forEach((line, index) => {
     const tspan = document.createElementNS(NS.SVG, 'tspan')
     tspan.setAttribute('x', x)
-    tspan.setAttribute('dy', index === 0 ? '0' : String(lineHeight))
-    tspan.textContent = line.text
+    tspan.setAttribute('y', String(y + index * lineHeight))
+    if (line.text === '') {
+      tspan.setAttribute(EMPTY_LINE_ATTR, 'true')
+      tspan.textContent = EMPTY_LINE_PLACEHOLDER
+    } else {
+      tspan.removeAttribute(EMPTY_LINE_ATTR)
+      tspan.textContent = line.text
+    }
     textElem.append(tspan)
   })
 

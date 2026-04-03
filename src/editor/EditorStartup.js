@@ -281,6 +281,30 @@ class EditorStartup {
       this.svgCanvas.setTextContent(evt.currentTarget.value)
     })
 
+    $id('text_multiline').addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' || evt.altKey || evt.ctrlKey || evt.metaKey) {
+        return
+      }
+
+      evt.preventDefault()
+
+      const input = evt.currentTarget
+      const start = input.selectionStart ?? input.value.length
+      const end = input.selectionEnd ?? start
+      const nextValue = `${input.value.slice(0, start)}\n${input.value.slice(end)}`
+      const nextIndex = start + 1
+      const selected = this.svgCanvas.getSelectedElements()[0]
+
+      input.value = nextValue
+      input.setSelectionRange(nextIndex, nextIndex)
+
+      if (selected?.tagName === 'text') {
+        selected.setAttribute('data-svgedit-multiline', 'true')
+        this.svgCanvas.setTextContent(nextValue)
+      }
+      this.svgCanvas.textActions.setCursor(nextIndex)
+    })
+
     addListenerMulti($id('text_multiline'), 'keyup input click mouseup select', (evt) => {
       const selected = this.svgCanvas.getSelectedElements()[0]
       if ((evt.type === 'keyup' || evt.type === 'input') && selected?.tagName === 'text') {

@@ -143,7 +143,11 @@ class TextActions {
     this.#ensureCursor()
 
     const tspans = [...this.#curtext.querySelectorAll('tspan')]
-    const renderedLines = (tspans.length ? tspans : [this.#curtext]).map((node) => node.textContent ?? '')
+    const renderedLines = (tspans.length ? tspans : [this.#curtext]).map((node) => {
+      return node.getAttribute?.('data-svgedit-empty-line') === 'true'
+        ? ''
+        : (node.textContent ?? '')
+    })
     const rawText = this.#textinput.value || ''
     const mappings = []
     let rawIndex = 0
