@@ -47,6 +47,12 @@ class LeftPanel {
     if (this.updateLeftPanel('tool_select')) {
       // this.editor.workarea.style.cursor = 'auto'
       this.editor.svgCanvas.setMode('select')
+      const selected = this.editor.svgCanvas.getSelectedElements()[0]
+      if (selected) {
+        const selector = this.editor.svgCanvas.selectorManager.requestSelector(selected)
+        selector.resize()
+        selector.showGrips(true)
+      }
     }
   }
 
@@ -181,6 +187,12 @@ class LeftPanel {
     if (this.updateLeftPanel('tool_text_multiline')) {
       this.editor.svgCanvas.useMultilineText = true
       this.editor.svgCanvas.setMode('textmultiline')
+      const selected = this.editor.svgCanvas.getSelectedElements()[0]
+      if (selected?.tagName === 'text') {
+        const selector = this.editor.svgCanvas.selectorManager.requestSelector(selected)
+        selector.resize()
+        selector.showGrips(true)
+      }
     }
   }
 

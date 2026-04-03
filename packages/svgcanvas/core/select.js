@@ -90,6 +90,22 @@ export class Selector {
       }
     })
     this.selectorGroup.append(this.frameRect)
+    this.textResizeGrip = svgCanvas.createSVGElement({
+      element: 'rect',
+      attr: {
+        id: `selectedTextResizeGrip${this.id}`,
+        width: 10,
+        height: 10,
+        fill: '#fff',
+        stroke: '#000',
+        'stroke-width': 1,
+        'pointer-events': 'all',
+        style: 'cursor:se-resize',
+        display: 'none'
+      }
+    })
+    svgCanvas.getDataStorage().put(this.textResizeGrip, 'type', 'textresize')
+    this.selectorGroup.append(this.textResizeGrip)
     this.selectorGroup.append(this.selectorRect)
 
     // this holds a reference to the grip coordinates for this selector
@@ -127,10 +143,18 @@ export class Selector {
   */
   showGrips (show) {
     const bShow = show ? 'inline' : 'none'
-    selectModule.getSelectorManager().selectorGripsGroup.setAttribute('display', bShow)
     const elem = this.selectedElement
     this.hasGrips = show
-    if (elem && show) {
+    const showTextResizeGrip = show &&
+      elem?.tagName === 'text' &&
+      svgCanvas.getCurrentMode() === 'textmultiline' &&
+      Number.isFinite(Number.parseFloat(elem.getAttribute('data-svgedit-wrap-width'))) &&
+      Number.isFinite(Number.parseFloat(elem.getAttribute('data-svgedit-wrap-height')))
+
+    selectModule.getSelectorManager().selectorGripsGroup.setAttribute('display', showTextResizeGrip ? 'none' : bShow)
+    this.textResizeGrip.setAttribute('display', showTextResizeGrip ? 'inline' : 'none')
+
+    if (elem && show && !showTextResizeGrip) {
       this.selectorGroup.append(selectModule.getSelectorManager().selectorGripsGroup)
       Selector.updateGripCursors(getRotationAngle(elem))
     }
@@ -303,8 +327,12 @@ export class Selector {
         this.frameRect.setAttribute('d', frameD)
         this.frameRect.setAttribute('stroke', isOverflowing ? '#D11' : '#0A8')
         this.frameRect.setAttribute('display', 'inline')
+        this.textResizeGrip.setAttribute('x', String(fmaxx - 5))
+        this.textResizeGrip.setAttribute('y', String(fmaxy - 5))
+        this.textResizeGrip.setAttribute('transform', `rotate(45 ${fmaxx} ${fmaxy})`)
       } else {
         this.frameRect.setAttribute('display', 'none')
+        this.textResizeGrip.setAttribute('display', 'none')
       }
       Object.entries(this.gripCoords).forEach(([dir, coords]) => {
         selectedGrips[dir].setAttribute('cx', coords[0])
@@ -322,6 +350,7 @@ export class Selector {
     }
     if (!bbox || !hasFrame) {
       this.frameRect.setAttribute('display', 'none')
+      this.textResizeGrip.setAttribute('display', 'none')
     }
   }
 

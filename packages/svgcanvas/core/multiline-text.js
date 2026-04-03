@@ -114,3 +114,33 @@ export const enableMultilineTextElement = (textElem) => {
     textElem.setAttribute(RAW_TEXT_ATTR, textElem.textContent || '')
   }
 }
+
+export const getMultilineFrameRect = (textElem) => {
+  if (!textElem) {
+    return null
+  }
+  const frameRef = textElem.getAttribute('data-svgedit-shape-inside-ref')
+  if (!frameRef || !frameRef.startsWith('#')) {
+    return null
+  }
+  return document.getElementById(frameRef.slice(1))
+}
+
+export const syncMultilineFrameRect = (textElem) => {
+  const frameRect = getMultilineFrameRect(textElem)
+  if (!frameRect) {
+    return null
+  }
+
+  const fontSize = toNumber(textElem.getAttribute('font-size'), 16)
+  const x = toNumber(textElem.getAttribute('x'), 0)
+  const y = toNumber(textElem.getAttribute('y'), fontSize) - fontSize
+  const width = Math.max(1, toNumber(textElem.getAttribute(WRAP_WIDTH_ATTR), 1))
+  const height = Math.max(1, toNumber(textElem.getAttribute(WRAP_HEIGHT_ATTR), 1))
+
+  frameRect.setAttribute('x', String(x))
+  frameRect.setAttribute('y', String(y))
+  frameRect.setAttribute('width', String(width))
+  frameRect.setAttribute('height', String(height))
+  return frameRect
+}

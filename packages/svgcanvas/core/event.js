@@ -8,7 +8,13 @@ import {
   assignAttributes, cleanupElement, getElement, getRotationAngle, snapToGrid, walkTree,
   preventClickDefault, setHref, getBBox, findDefs
 } from './utilities.js'
-import { enableMultilineTextElement, isMultilineTextElement } from './multiline-text.js'
+import {
+  applyMultilineText,
+  enableMultilineTextElement,
+  getRawMultilineText,
+  isMultilineTextElement,
+  syncMultilineFrameRect
+} from './multiline-text.js'
 import {
   convertAttrs
 } from './units.js'
@@ -350,6 +356,32 @@ const mouseMoveEvent = (evt) => {
       break
     }
     case 'textmultiline': {
+      if (selected && svgCanvas.textFrameResize) {
+        const anchorX = svgCanvas.textFrameResize.anchorX
+        const anchorY = svgCanvas.textFrameResize.anchorY
+        let frameX = Math.min(anchorX, x)
+        let frameY = Math.min(anchorY, y)
+        let frameWidth = Math.max(Math.abs(x - anchorX), 1)
+        let frameHeight = Math.max(Math.abs(y - anchorY), 1)
+        if (svgCanvas.getCurConfig().gridSnapping) {
+          frameX = snapToGrid(frameX)
+          frameY = snapToGrid(frameY)
+          frameWidth = snapToGrid(frameWidth)
+          frameHeight = snapToGrid(frameHeight)
+        }
+        const fontSize = Number(selected.getAttribute('font-size')) || 16
+
+        assignAttributes(selected, {
+          x: frameX,
+          y: frameY + fontSize,
+          'data-svgedit-wrap-width': Math.max(frameWidth, 1),
+          'data-svgedit-wrap-height': Math.max(frameHeight, 1)
+        }, 100)
+        syncMultilineFrameRect(selected)
+        applyMultilineText(selected, getRawMultilineText(selected))
+        svgCanvas.selectorManager.requestSelector(selected).resize()
+        break
+      }
       let w = Math.abs(x - svgCanvas.getStartX())
       let h = Math.abs(y - svgCanvas.getStartY())
       let newX = Math.min(svgCanvas.getStartX(), x)
@@ -954,6 +986,25 @@ const mouseUpEvent = (evt) => {
       }
       break
     case 'textmultiline': {
+      if (svgCanvas.textFrameResize && selectedElements[0]) {
+        keep = true
+        element = null
+        const selected = selectedElements[0]
+        const oldValues = svgCanvas.textFrameResize.oldValues
+        svgCanvas.textFrameResize = null
+
+        const changed = Object.keys(oldValues).some((attr) => {
+          return String(selected.getAttribute(attr) || '') !== String(oldValues[attr] || '')
+        })
+        if (changed) {
+          const batchCmd = new BatchCommand('Resize text frame')
+          batchCmd.addSubCommand(new ChangeElementCommand(selected, oldValues))
+          svgCanvas.addCommandToHistory(batchCmd)
+          svgCanvas.call('changed', [selected])
+        }
+        svgCanvas.selectorManager.requestSelector(selected).showGrips(true)
+        return
+      }
       keep = true
       let frameWidth = Number(element.getAttribute('width')) || 0
       let frameHeight = Number(element.getAttribute('height')) || 0
@@ -1282,8 +1333,12 @@ const mouseDownEvent = (evt) => {
     } else if (griptype === 'resize') {
       svgCanvas.setCurrentMode('resize')
       svgCanvas.setCurrentResizeMode(dataStorage.get(grip, 'dir'))
+    } else if (griptype === 'textresize') {
+      // Keep selectorParentGroup as the mouse target so multiline mode can
+      // handle its dedicated frame resize grip separately.
+    } else {
+      mouseTarget = selectedElements[0]
     }
-    mouseTarget = selectedElements[0]
   }
 
   svgCanvas.setStartTransform(mouseTarget.getAttribute('transform'))
@@ -1545,6 +1600,25 @@ const mouseDownEvent = (evt) => {
       // newText.textContent = 'text';
       break
     case 'textmultiline':
+      if (mouseTarget === svgCanvas.selectorManager.selectorParentGroup && selectedElements[0]) {
+        const grip = evt.target
+        if (dataStorage.get(grip, 'type') === 'textresize') {
+          const selected = selectedElements[0]
+          const fontSize = Number(selected.getAttribute('font-size')) || 16
+          svgCanvas.textFrameResize = {
+            anchorX: Number(selected.getAttribute('x')) || 0,
+            anchorY: (Number(selected.getAttribute('y')) || fontSize) - fontSize,
+            oldValues: {
+              x: selected.getAttribute('x') || '',
+              y: selected.getAttribute('y') || '',
+              'data-svgedit-wrap-width': selected.getAttribute('data-svgedit-wrap-width') || '',
+              'data-svgedit-wrap-height': selected.getAttribute('data-svgedit-wrap-height') || ''
+            }
+          }
+          svgCanvas.setStarted(true)
+          break
+        }
+      }
       svgCanvas.setStarted(true)
       svgCanvas.addSVGElementsFromJson({
         element: 'rect',
