@@ -56,12 +56,23 @@ class TextActions {
   }
 
   #ptToViewport = (x, y) => {
-    const rootRect = svgCanvas.getSvgRoot().getBoundingClientRect()
-    const screenPoint = this.#ptToScreen(x, y)
-    return {
-      x: rootRect.left + screenPoint.x,
-      y: rootRect.top + screenPoint.y
+    const svgContent = svgCanvas.getSvgContent()
+    const rootGroup = svgContent?.querySelector('g')
+    const screenCTM = rootGroup?.getScreenCTM?.()
+    if (!screenCTM) {
+      const fallbackPoint = this.#ptToScreen(x, y)
+      return {
+        x: fallbackPoint.x,
+        y: fallbackPoint.y
+      }
     }
+
+    let point = { x, y }
+    if (this.#matrix) {
+      point = transformPoint(point.x, point.y, this.#matrix)
+    }
+
+    return transformPoint(point.x, point.y, screenCTM)
   }
 
   #hideMultilineInput = () => {
@@ -71,11 +82,150 @@ class TextActions {
 
     Object.assign(this.#multilineInput.style, {
       display: 'none',
-      left: '',
-      top: '',
-      width: '',
-      height: ''
+      visibility: 'hidden',
+      opacity: '0',
+      pointerEvents: 'none',
+      left: '-10000px',
+      top: '-10000px',
+      width: '1px',
+      height: '1px',
+      caretColor: ''
     })
+  }
+
+  #getMultilineTextAlignment = (computedStyle) => {
+    const textAnchor = this.#curtext.getAttribute('text-anchor') || computedStyle.textAnchor || 'start'
+    if (textAnchor === 'middle') {
+      return 'center'
+    }
+    if (textAnchor === 'end') {
+      return 'end'
+    }
+    return 'start'
+  }
+
+  #ensureCursor = () => {
+    this.#cursor = getElement('text_cursor')
+    if (!this.#cursor) {
+      this.#cursor = document.createElementNS(NS.SVG, 'line')
+      assignAttributes(this.#cursor, {
+        id: 'text_cursor',
+        stroke: '#333',
+        'stroke-width': 1
+      })
+      getElement('selectorParentGroup').append(this.#cursor)
+    }
+
+    if (!this.#blinker) {
+      this.#blinker = setInterval(() => {
+        const show = this.#cursor.getAttribute('display') === 'none'
+        this.#cursor.setAttribute('display', show ? 'inline' : 'none')
+      }, 600)
+    }
+  }
+
+  #setMultilineCursor = (index = undefined) => {
+    if (!this.#textinput) {
+      return
+    }
+
+    if (index === undefined) {
+      index = this.#textinput.selectionEnd ?? this.#textinput.value.length
+    }
+
+    if (this.#textinput.selectionStart !== this.#textinput.selectionEnd) {
+      if (this.#cursor) {
+        this.#cursor.setAttribute('visibility', 'hidden')
+      }
+      return
+    }
+
+    this.#ensureCursor()
+
+    const tspans = [...this.#curtext.querySelectorAll('tspan')]
+    const renderedLines = (tspans.length ? tspans : [this.#curtext]).map((node) => node.textContent ?? '')
+    const rawText = this.#textinput.value || ''
+    const mappings = []
+    let rawIndex = 0
+
+    renderedLines.forEach((lineText, lineIndex) => {
+      const rawStart = rawIndex
+      rawIndex += lineText.length
+
+      let breakLength = 0
+      if (rawText.slice(rawIndex, rawIndex + 2) === '\r\n') {
+        breakLength = 2
+      } else if (rawText[rawIndex] === '\n' || rawText[rawIndex] === '\r') {
+        breakLength = 1
+      }
+
+      mappings.push({
+        lineIndex,
+        lineText,
+        rawStart,
+        rawEnd: rawIndex,
+        breakLength
+      })
+
+      rawIndex += breakLength
+    })
+
+    let targetLine = mappings.length - 1
+    let column = mappings.at(-1)?.lineText.length ?? 0
+
+    for (let i = 0; i < mappings.length; i++) {
+      const mapping = mappings[i]
+      const breakEnd = mapping.rawEnd + mapping.breakLength
+
+      if (index < mapping.rawEnd || (index === mapping.rawEnd && mapping.breakLength === 0)) {
+        targetLine = i
+        column = Math.max(0, Math.min(index - mapping.rawStart, mapping.lineText.length))
+        break
+      }
+
+      if (mapping.breakLength > 0 && index <= breakEnd) {
+        targetLine = Math.min(i + 1, mappings.length - 1)
+        column = 0
+        break
+      }
+    }
+
+    const lineText = mappings[targetLine]?.lineText ?? ''
+    const frameX = Number(this.#curtext.getAttribute('x')) || 0
+    const fontSize = Number(this.#curtext.getAttribute('font-size')) || 16
+    const frameY = (Number(this.#curtext.getAttribute('y')) || fontSize) - fontSize
+    const lineHeight = Number(this.#curtext.getAttribute('data-svgedit-line-height')) || fontSize * 1.2
+    const renderedIndex = mappings
+      .slice(0, targetLine)
+      .reduce((sum, mapping) => sum + mapping.lineText.length, 0) + column
+
+    let caretX = frameX
+    if (lineText.length > 0) {
+      if (column <= 0) {
+        caretX = this.#curtext.getStartPositionOfChar(renderedIndex).x
+      } else if (column >= lineText.length) {
+        caretX = this.#curtext.getEndPositionOfChar(renderedIndex - 1).x
+      } else {
+        caretX = this.#curtext.getStartPositionOfChar(renderedIndex).x
+      }
+    }
+
+    const lineTop = frameY + targetLine * lineHeight
+    const startPt = this.#ptToScreen(caretX, lineTop)
+    const endPt = this.#ptToScreen(caretX, lineTop + lineHeight)
+
+    assignAttributes(this.#cursor, {
+      x1: startPt.x,
+      y1: startPt.y,
+      x2: endPt.x,
+      y2: endPt.y,
+      visibility: 'visible',
+      display: 'inline'
+    })
+
+    if (this.#selblock) {
+      this.#selblock.setAttribute('d', '')
+    }
   }
 
   #syncMultilineInput = () => {
@@ -99,6 +249,9 @@ class TextActions {
     Object.assign(this.#textinput.style, {
       position: 'fixed',
       display: 'block',
+      visibility: 'visible',
+      opacity: '1',
+      pointerEvents: 'auto',
       left: `${topLeft.x}px`,
       top: `${topLeft.y}px`,
       width: `${Math.max(topRight.x - topLeft.x, 1)}px`,
@@ -110,8 +263,11 @@ class TextActions {
       lineHeight: `${lineHeight * zoom}px`,
       letterSpacing: computedStyle.letterSpacing,
       wordSpacing: computedStyle.wordSpacing,
-      textAlign: computedStyle.textAlign || 'left',
-      color: computedStyle.fill || this.#curtext.getAttribute('fill') || '#000000'
+      direction: computedStyle.direction || 'ltr',
+      textAlign: this.#getMultilineTextAlignment(computedStyle),
+      textAlignLast: this.#getMultilineTextAlignment(computedStyle),
+      color: 'transparent',
+      caretColor: 'transparent'
     })
   }
 
@@ -156,6 +312,11 @@ class TextActions {
    * @private
    */
   #setCursor = (index = undefined) => {
+    if (this.#isEditingMultiline()) {
+      this.#setMultilineCursor(index)
+      return
+    }
+
     const empty = this.#textinput.value === ''
     this.#textinput.focus()
 
@@ -174,23 +335,7 @@ class TextActions {
     if (!empty) {
       this.#textinput.setSelectionRange(index, index)
     }
-    this.#cursor = getElement('text_cursor')
-    if (!this.#cursor) {
-      this.#cursor = document.createElementNS(NS.SVG, 'line')
-      assignAttributes(this.#cursor, {
-        id: 'text_cursor',
-        stroke: '#333',
-        'stroke-width': 1
-      })
-      getElement('selectorParentGroup').append(this.#cursor)
-    }
-
-    if (!this.#blinker) {
-      this.#blinker = setInterval(() => {
-        const show = this.#cursor.getAttribute('display') === 'none'
-        this.#cursor.setAttribute('display', show ? 'inline' : 'none')
-      }, 600)
-    }
+    this.#ensureCursor()
 
     const startPt = this.#ptToScreen(charbb.x, this.#textbb.y)
     const endPt = this.#ptToScreen(charbb.x, this.#textbb.y + this.#textbb.height)
@@ -553,6 +698,7 @@ class TextActions {
       this.#textinput.focus()
       const index = this.#textinput.value.length
       this.#textinput.setSelectionRange(index, index)
+      this.#setMultilineCursor(index)
 
       setTimeout(() => {
         this.#allowDbl = true
@@ -695,6 +841,7 @@ class TextActions {
 
     if (this.#isEditingMultiline()) {
       this.#syncMultilineInput()
+      this.#setMultilineCursor()
       return
     }
 

@@ -399,10 +399,7 @@ class TopPanel {
           if (this.editor.svgCanvas.addedNew) {
             // Timeout needed for IE9
             setTimeout(() => {
-              if (this.editor.svgCanvas.useMultilineText) {
-                $id('text_multiline').focus()
-                $id('text_multiline').select()
-              } else {
+              if (!this.editor.svgCanvas.useMultilineText) {
                 $id('text').focus()
                 $id('text').select()
               }

@@ -628,18 +628,25 @@ ul li.current {
 
 #text_multiline {
   display: none;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
   position: fixed;
+  left: -10000px;
+  top: -10000px;
   min-width: 1px;
   min-height: 1px;
   margin: 0;
   padding: 0;
-  border: 1px solid #3b82f6;
-  background: rgba(255, 255, 255, 0.96);
-  color: inherit;
+  border: none;
+  background: transparent;
+  color: transparent;
   box-sizing: border-box;
   outline: none;
   resize: none;
   overflow: hidden;
   white-space: pre-wrap;
+  caret-color: #111;
+  -webkit-text-fill-color: transparent;
   z-index: 10;
 }

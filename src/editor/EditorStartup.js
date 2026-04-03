@@ -206,7 +206,13 @@ class EditorStartup {
     this.svgCanvas.bind('afterClear', this.afterClear.bind(this))
 
     this.svgCanvas.textActions.setInputElem($id('text'))
-    this.svgCanvas.textActions.setMultilineInputElem($id('text_multiline'))
+    const multilineInput = $id('text_multiline')
+    multilineInput.spellcheck = false
+    multilineInput.setAttribute('autocomplete', 'off')
+    multilineInput.setAttribute('autocorrect', 'off')
+    multilineInput.setAttribute('autocapitalize', 'off')
+    document.body.append(multilineInput)
+    this.svgCanvas.textActions.setMultilineInputElem(multilineInput)
     this.svgCanvas.useMultilineText = false
 
     this.setBackground(this.configObj.pref('bkgd_color'), this.configObj.pref('bkgd_url'))
@@ -275,12 +281,13 @@ class EditorStartup {
       this.svgCanvas.setTextContent(evt.currentTarget.value)
     })
 
-    addListenerMulti($id('text_multiline'), 'keyup input', (evt) => {
+    addListenerMulti($id('text_multiline'), 'keyup input click mouseup select', (evt) => {
       const selected = this.svgCanvas.getSelectedElements()[0]
-      if (selected?.tagName === 'text') {
+      if ((evt.type === 'keyup' || evt.type === 'input') && selected?.tagName === 'text') {
         selected.setAttribute('data-svgedit-multiline', 'true')
+        this.svgCanvas.setTextContent(evt.currentTarget.value)
       }
-      this.svgCanvas.setTextContent(evt.currentTarget.value)
+      this.svgCanvas.textActions.setCursor()
     })
 
     $id('link_url').addEventListener('change', (evt) => {
