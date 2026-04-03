@@ -28,6 +28,96 @@ async function fillMultilineText (page, lines) {
   await editor.fill(lines.join('\n'))
 }
 
+async function commitMultilineEdit (page) {
+  await page.locator('#svgroot').click({ position: { x: 40, y: 40 } })
+}
+
+async function getMultilineSnapshot (page, textId) {
+  return page.evaluate((id) => {
+    const textNode = document.getElementById(id)
+    if (!textNode) {
+      return null
+    }
+
+    const frameRef = textNode.getAttribute('data-svgedit-shape-inside-ref')
+    const frame = frameRef?.startsWith('#')
+      ? document.querySelector(`defs ${frameRef}`)
+      : null
+
+    return {
+      id,
+      x: textNode.getAttribute('x'),
+      y: textNode.getAttribute('y'),
+      rawText: textNode.getAttribute('data-svgedit-raw-text'),
+      wrapWidth: textNode.getAttribute('data-svgedit-wrap-width'),
+      wrapHeight: textNode.getAttribute('data-svgedit-wrap-height'),
+      lines: [...textNode.querySelectorAll('tspan')].map((tspan) => ({
+        text: tspan.textContent,
+        empty: tspan.getAttribute('data-svgedit-empty-line') === 'true'
+      })),
+      frame: frame
+        ? {
+            x: frame.getAttribute('x'),
+            y: frame.getAttribute('y'),
+            width: frame.getAttribute('width'),
+            height: frame.getAttribute('height')
+          }
+        : null
+    }
+  }, textId)
+}
+
+async function expectSnapshot (page, textId, expected) {
+  await expect.poll(async () => getMultilineSnapshot(page, textId)).toEqual(expected)
+}
+
+function getResizeSnapshot (snapshot) {
+  return {
+    wrapWidth: snapshot?.wrapWidth ?? null,
+    wrapHeight: snapshot?.wrapHeight ?? null,
+    frameWidth: snapshot?.frame?.width ?? null,
+    frameHeight: snapshot?.frame?.height ?? null
+  }
+}
+
+async function clickToolbarUntil (page, buttonSelector, predicate, maxClicks = 6) {
+  for (let i = 0; i <= maxClicks; i++) {
+    if (await predicate()) {
+      return
+    }
+    if (i < maxClicks) {
+      await page.locator(buttonSelector).click()
+    }
+  }
+  throw new Error(`Condition was not met after clicking ${buttonSelector} ${maxClicks} times`)
+}
+
+async function getVisibleTextResizeGrip (page) {
+  return page.locator('[id^="selectedTextResizeGrip"]').filter({ visible: true })
+}
+
+async function getTextCenter (page, textId) {
+  return page.evaluate((id) => {
+    const textNode = document.getElementById(id)
+    if (!textNode) {
+      return null
+    }
+    const bbox = textNode.getBBox()
+    return {
+      x: bbox.x + bbox.width / 2,
+      y: bbox.y + bbox.height / 2
+    }
+  }, textId)
+}
+
+async function clickTextOnCanvas (page, textId, clickCount = 1) {
+  const center = await getTextCenter(page, textId)
+  const svgBox = await page.locator('#svgroot').boundingBox()
+  expect(center).not.toBeNull()
+  expect(svgBox).not.toBeNull()
+  await page.mouse.click(svgBox.x + center.x, svgBox.y + center.y, { clickCount })
+}
+
 async function getMultilineCursorGeometry (page, textSelector) {
   return page.evaluate((selector) => {
     const textNode = document.querySelector(selector)
@@ -285,5 +375,149 @@ test.describe('Multiline text', () => {
     await expect(textNode).toHaveAttribute('data-svgedit-wrap-width', '80')
     await expect(textNode).toHaveAttribute('data-svgedit-wrap-height', '80')
     await expectBackedFrame(page, textNode, { width: 80, height: 80 })
+  })
+
+  test('undo and redo restore a created multiline text element', async ({ page }) => {
+    await page.locator('#tool_text_multiline').click()
+    await page.locator('#svgroot').dragTo(page.locator('#svgroot'), {
+      sourcePosition: { x: 80, y: 100 },
+      targetPosition: { x: 260, y: 220 }
+    })
+    await fillMultilineText(page, ['first line', 'second line'])
+    const textNode = await getSelectedMultilineText(page)
+    const textId = await textNode.getAttribute('id')
+    await commitMultilineEdit(page)
+
+    const createdSnapshot = await getMultilineSnapshot(page, textId)
+    expect(createdSnapshot).not.toBeNull()
+
+    await clickToolbarUntil(page, '#tool_undo', async () => {
+      return (await page.locator(`#${textId}`).count()) === 0
+    })
+
+    await clickToolbarUntil(page, '#tool_redo', async () => {
+      return (await getMultilineSnapshot(page, textId)) !== null
+    })
+
+    await expectSnapshot(page, textId, createdSnapshot)
+  })
+
+  test.fixme('undo and redo restore multiline text edits', async ({ page }) => {
+    await page.locator('#tool_text_multiline').click()
+    await page.locator('#svgroot').dragTo(page.locator('#svgroot'), {
+      sourcePosition: { x: 80, y: 100 },
+      targetPosition: { x: 260, y: 220 }
+    })
+    await fillMultilineText(page, ['first line', 'second line'])
+    const textNode = await getSelectedMultilineText(page)
+    const textId = await textNode.getAttribute('id')
+    await commitMultilineEdit(page)
+
+    const originalSnapshot = await getMultilineSnapshot(page, textId)
+    await page.locator(`#${textId}`).dblclick({ force: true })
+    await fillMultilineText(page, ['edited line', '', 'third line'])
+    await commitMultilineEdit(page)
+
+    const editedSnapshot = await getMultilineSnapshot(page, textId)
+    expect(editedSnapshot).not.toEqual(originalSnapshot)
+
+    await clickToolbarUntil(page, '#tool_undo', async () => {
+      const current = await getMultilineSnapshot(page, textId)
+      return current?.rawText === originalSnapshot.rawText
+    })
+
+    await expect.poll(async () => (await getMultilineSnapshot(page, textId))?.rawText).toBe(originalSnapshot.rawText)
+
+    await clickToolbarUntil(page, '#tool_redo', async () => {
+      const current = await getMultilineSnapshot(page, textId)
+      return current?.rawText === editedSnapshot.rawText
+    })
+
+    await expect.poll(async () => (await getMultilineSnapshot(page, textId))?.rawText).toBe(editedSnapshot.rawText)
+  })
+
+  test.fixme('undo and redo restore multiline text movement', async ({ page }) => {
+    await page.locator('#tool_text_multiline').click()
+    await page.locator('#svgroot').dragTo(page.locator('#svgroot'), {
+      sourcePosition: { x: 80, y: 100 },
+      targetPosition: { x: 260, y: 220 }
+    })
+    await fillMultilineText(page, ['move me'])
+    const textNode = await getSelectedMultilineText(page)
+    const textId = await textNode.getAttribute('id')
+    await commitMultilineEdit(page)
+
+    const originalSnapshot = await getMultilineSnapshot(page, textId)
+    await clickTextOnCanvas(page, textId)
+    await page.locator('#selected_x').evaluate((el) => {
+      el.value = String(Number(el.value) + 20)
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    const movedSnapshot = await getMultilineSnapshot(page, textId)
+    expect(movedSnapshot).not.toBeNull()
+    expect(movedSnapshot.x).not.toBe(originalSnapshot.x)
+
+    await clickToolbarUntil(page, '#tool_undo', async () => {
+      const current = await getMultilineSnapshot(page, textId)
+      return current?.x === originalSnapshot.x
+    })
+
+    await expect.poll(async () => (await getMultilineSnapshot(page, textId))?.x).toBe(originalSnapshot.x)
+
+    await clickToolbarUntil(page, '#tool_redo', async () => {
+      const current = await getMultilineSnapshot(page, textId)
+      return current?.x === movedSnapshot.x
+    })
+
+    await expect.poll(async () => (await getMultilineSnapshot(page, textId))?.x).toBe(movedSnapshot.x)
+  })
+
+  test.fixme('undo and redo restore multiline frame resizing', async ({ page }) => {
+    await page.locator('#tool_text_multiline').click()
+    await page.locator('#svgroot').dragTo(page.locator('#svgroot'), {
+      sourcePosition: { x: 80, y: 100 },
+      targetPosition: { x: 260, y: 220 }
+    })
+    await fillMultilineText(page, ['one two three four five six seven eight'])
+    const textNode = await getSelectedMultilineText(page)
+    const textId = await textNode.getAttribute('id')
+    await commitMultilineEdit(page)
+
+    const originalSnapshot = await getMultilineSnapshot(page, textId)
+    const originalResize = getResizeSnapshot(originalSnapshot)
+    await clickTextOnCanvas(page, textId)
+
+    const resizeGrip = await getVisibleTextResizeGrip(page)
+    const gripBox = await resizeGrip.boundingBox()
+    const svgBox = await page.locator('#svgroot').boundingBox()
+    expect(gripBox).not.toBeNull()
+    expect(svgBox).not.toBeNull()
+
+    await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(svgBox.x + 160, svgBox.y + 180)
+    await page.mouse.up()
+
+    const resizedSnapshot = await getMultilineSnapshot(page, textId)
+    const resizedResize = getResizeSnapshot(resizedSnapshot)
+    expect(resizedResize.wrapWidth).not.toBe(originalResize.wrapWidth)
+    expect(resizedResize.wrapHeight).not.toBe(originalResize.wrapHeight)
+    expect(resizedResize.frameWidth).not.toBe(originalResize.frameWidth)
+    expect(resizedResize.frameHeight).not.toBe(originalResize.frameHeight)
+
+    await clickToolbarUntil(page, '#tool_undo', async () => {
+      const current = getResizeSnapshot(await getMultilineSnapshot(page, textId))
+      return JSON.stringify(current) === JSON.stringify(originalResize)
+    })
+
+    await expect.poll(async () => getResizeSnapshot(await getMultilineSnapshot(page, textId))).toEqual(originalResize)
+
+    await clickToolbarUntil(page, '#tool_redo', async () => {
+      const current = getResizeSnapshot(await getMultilineSnapshot(page, textId))
+      return JSON.stringify(current) === JSON.stringify(resizedResize)
+    })
+
+    await expect.poll(async () => getResizeSnapshot(await getMultilineSnapshot(page, textId))).toEqual(resizedResize)
   })
 })
