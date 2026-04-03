@@ -80,9 +80,14 @@ export const applyMultilineText = (textElem, rawText) => {
     tspan.setAttribute('y', String(y + index * lineHeight))
     if (line.text === '') {
       tspan.setAttribute(EMPTY_LINE_ATTR, 'true')
+      tspan.setAttribute('xml:space', 'preserve')
+      tspan.setAttribute('textLength', '0')
+      tspan.setAttribute('lengthAdjust', 'spacingAndGlyphs')
       tspan.textContent = EMPTY_LINE_PLACEHOLDER
     } else {
       tspan.removeAttribute(EMPTY_LINE_ATTR)
+      tspan.removeAttribute('textLength')
+      tspan.removeAttribute('lengthAdjust')
       tspan.textContent = line.text
     }
     textElem.append(tspan)

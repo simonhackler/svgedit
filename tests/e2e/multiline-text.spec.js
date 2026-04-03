@@ -83,6 +83,29 @@ async function getTspanMetrics (page, textSelector) {
   }, textSelector)
 }
 
+async function getLineAndCursorMetrics (page, textSelector, lineIndex) {
+  return page.evaluate(({ selector, lineIndex }) => {
+    const textNode = document.querySelector(selector)
+    const cursor = document.getElementById('text_cursor')
+    const tspan = textNode?.querySelectorAll('tspan')?.[lineIndex]
+    if (!textNode || !cursor || !tspan) {
+      return null
+    }
+
+    const bbox = tspan.getBBox()
+    return {
+      line: {
+        x: bbox.x,
+        width: bbox.width
+      },
+      cursor: {
+        x1: Number(cursor.getAttribute('x1')),
+        x2: Number(cursor.getAttribute('x2'))
+      }
+    }
+  }, { selector: textSelector, lineIndex })
+}
+
 test.describe('Multiline text', () => {
   test.beforeEach(async ({ page }) => {
     await visitAndApproveStorage(page)
@@ -157,6 +180,26 @@ test.describe('Multiline text', () => {
     expect(lineMetrics).toHaveLength(3)
     expect(lineMetrics[1].y).toBeGreaterThan(lineMetrics[0].y + 10)
     expect(lineMetrics[2].y).toBeGreaterThan(lineMetrics[1].y + 10)
+  })
+
+  test('typing after two blank lines keeps the visible cursor at the text end', async ({ page }) => {
+    await page.locator('#tool_text_multiline').click()
+    await page.locator('#svgroot').dragTo(page.locator('#svgroot'), {
+      sourcePosition: { x: 80, y: 100 },
+      targetPosition: { x: 260, y: 220 }
+    })
+
+    const editor = page.locator('#text_multiline')
+    await expect(editor).toBeVisible()
+    await editor.press('Enter')
+    await editor.press('Enter')
+    await editor.pressSequentially('k')
+
+    const text = await getSelectedMultilineText(page)
+    const metrics = await getLineAndCursorMetrics(page, `#${await text.getAttribute('id')}`, 2)
+    expect(metrics).not.toBeNull()
+    expect(metrics.cursor.x1).toBeGreaterThan(metrics.line.x + 1)
+    expect(metrics.cursor.x2).toBeGreaterThan(metrics.line.x + 1)
   })
 
   test('dragging multiline text creates a backed frame and wrapped content', async ({ page }) => {

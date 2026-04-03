@@ -144,17 +144,22 @@ class TextActions {
 
     const tspans = [...this.#curtext.querySelectorAll('tspan')]
     const renderedLines = (tspans.length ? tspans : [this.#curtext]).map((node) => {
-      return node.getAttribute?.('data-svgedit-empty-line') === 'true'
-        ? ''
-        : (node.textContent ?? '')
+      const isEmptyLine = node.getAttribute?.('data-svgedit-empty-line') === 'true'
+      return {
+        text: isEmptyLine ? '' : (node.textContent ?? ''),
+        domLength: (node.textContent ?? '').length
+      }
     })
     const rawText = this.#textinput.value || ''
     const mappings = []
     let rawIndex = 0
+    let domIndex = 0
 
-    renderedLines.forEach((lineText, lineIndex) => {
+    renderedLines.forEach(({ text: lineText, domLength }, lineIndex) => {
       const rawStart = rawIndex
+      const domStart = domIndex
       rawIndex += lineText.length
+      domIndex += domLength
 
       let breakLength = 0
       if (rawText.slice(rawIndex, rawIndex + 2) === '\r\n') {
@@ -168,6 +173,8 @@ class TextActions {
         lineText,
         rawStart,
         rawEnd: rawIndex,
+        domStart,
+        domEnd: domStart + domLength,
         breakLength
       })
 
@@ -199,18 +206,16 @@ class TextActions {
     const fontSize = Number(this.#curtext.getAttribute('font-size')) || 16
     const frameY = (Number(this.#curtext.getAttribute('y')) || fontSize) - fontSize
     const lineHeight = Number(this.#curtext.getAttribute('data-svgedit-line-height')) || fontSize * 1.2
-    const renderedIndex = mappings
-      .slice(0, targetLine)
-      .reduce((sum, mapping) => sum + mapping.lineText.length, 0) + column
+    const domIndexForCursor = (mappings[targetLine]?.domStart ?? 0) + column
 
     let caretX = frameX
     if (lineText.length > 0) {
       if (column <= 0) {
-        caretX = this.#curtext.getStartPositionOfChar(renderedIndex).x
+        caretX = this.#curtext.getStartPositionOfChar(domIndexForCursor).x
       } else if (column >= lineText.length) {
-        caretX = this.#curtext.getEndPositionOfChar(renderedIndex - 1).x
+        caretX = this.#curtext.getEndPositionOfChar(domIndexForCursor - 1).x
       } else {
-        caretX = this.#curtext.getStartPositionOfChar(renderedIndex).x
+        caretX = this.#curtext.getStartPositionOfChar(domIndexForCursor).x
       }
     }
 
