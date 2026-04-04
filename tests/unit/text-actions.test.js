@@ -9,6 +9,7 @@ describe('TextActions', () => {
   let svgRoot
   let textElement
   let inputElement
+  let multilineInputElement
   let mockSelectorManager
 
   beforeEach(() => {
@@ -45,6 +46,9 @@ describe('TextActions', () => {
     inputElement.type = 'text'
     document.body.append(inputElement)
 
+    multilineInputElement = document.createElement('textarea')
+    document.body.append(multilineInputElement)
+
     // Create mock selector group
     const selectorParentGroup = document.createElementNS(NS.SVG, 'g')
     selectorParentGroup.id = 'selectorParentGroup'
@@ -65,6 +69,7 @@ describe('TextActions', () => {
       setCurrentMode: vi.fn(),
       clearSelection: vi.fn(),
       addToSelection: vi.fn(),
+      selectOnly: vi.fn(),
       deleteSelectedElements: vi.fn(),
       call: vi.fn(),
       getSelectedElements: () => [textElement],
@@ -80,6 +85,7 @@ describe('TextActions', () => {
     utilitiesInit(svgCanvas)
     textActionsInit(svgCanvas)
     textActionsMethod.setInputElem(inputElement)
+    textActionsMethod.setMultilineInputElem(multilineInputElement)
   })
 
   afterEach(() => {
@@ -104,6 +110,7 @@ describe('TextActions', () => {
         'toEditMode',
         'toSelectMode',
         'setInputElem',
+        'setMultilineInputElem',
         'clear',
         'init'
       ]
@@ -121,6 +128,12 @@ describe('TextActions', () => {
       // Method should not throw and should be callable
       expect(true).toBe(true)
     })
+
+    it('should set the multiline input element', () => {
+      const newInput = document.createElement('textarea')
+      textActionsMethod.setMultilineInputElem(newInput)
+      expect(true).toBe(true)
+    })
   })
 
   describe('select', () => {
@@ -134,6 +147,17 @@ describe('TextActions', () => {
     it('should start editing a text element', () => {
       textActionsMethod.start(textElement)
       expect(svgCanvas.setCurrentMode).toHaveBeenCalledWith('textedit')
+    })
+
+    it('should start editing a multiline text element with the overlay input', () => {
+      textElement.setAttribute('data-svgedit-multiline', 'true')
+      textElement.setAttribute('data-svgedit-wrap-width', '180')
+      textElement.setAttribute('data-svgedit-wrap-height', '120')
+
+      textActionsMethod.start(textElement)
+
+      expect(svgCanvas.setCurrentMode).toHaveBeenCalledWith('textedit')
+      expect(multilineInputElement.style.display).toBe('block')
     })
   })
 
@@ -168,6 +192,18 @@ describe('TextActions', () => {
       // Should not throw when called without a current text element
       expect(true).toBe(true)
     })
+
+    it('should initialize multiline editing without measuring per-character positions', () => {
+      textElement.setAttribute('data-svgedit-multiline', 'true')
+      textElement.setAttribute('data-svgedit-wrap-width', '180')
+      textElement.setAttribute('data-svgedit-wrap-height', '120')
+
+      textActionsMethod.start(textElement)
+      textActionsMethod.init()
+
+      expect(textElement.getStartPositionOfChar).not.toHaveBeenCalled()
+      expect(multilineInputElement.value).toBe('Test')
+    })
   })
 
   describe('toEditMode', () => {
@@ -192,6 +228,20 @@ describe('TextActions', () => {
       textActionsMethod.toSelectMode(false)
 
       expect(svgCanvas.setCurrentMode).toHaveBeenCalledWith('select')
+    })
+
+    it('should hide the multiline overlay when leaving edit mode', () => {
+      textElement.setAttribute('data-svgedit-multiline', 'true')
+      textElement.setAttribute('data-svgedit-wrap-width', '180')
+      textElement.setAttribute('data-svgedit-wrap-height', '120')
+
+      textActionsMethod.start(textElement)
+      textElement.removeAttribute('data-svgedit-multiline')
+      textElement.removeAttribute('data-svgedit-wrap-width')
+      textElement.removeAttribute('data-svgedit-wrap-height')
+      textActionsMethod.toSelectMode(false)
+
+      expect(multilineInputElement.style.display).toBe('none')
     })
 
     it('should select element when selectElem is true', () => {

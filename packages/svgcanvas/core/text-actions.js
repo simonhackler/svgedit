@@ -34,6 +34,8 @@ export const init = canvas => {
  */
 class TextActions {
   #curtext = null
+  #singlelineInput = null
+  #multilineInput = null
   #textinput = null
   #cursor = null
   #selblock = null
@@ -44,6 +46,239 @@ class TextActions {
   #lastX = null
   #lastY = null
   #allowDbl = false
+
+  #isEditingMultiline = () => isMultilineTextElement(this.#curtext)
+
+  #setActiveInput = () => {
+    this.#textinput = this.#isEditingMultiline()
+      ? (this.#multilineInput || this.#singlelineInput)
+      : this.#singlelineInput
+  }
+
+  #ptToViewport = (x, y) => {
+    const svgContent = svgCanvas.getSvgContent()
+    const rootGroup = svgContent?.querySelector('g')
+    const screenCTM = rootGroup?.getScreenCTM?.()
+    if (!screenCTM) {
+      const fallbackPoint = this.#ptToScreen(x, y)
+      return {
+        x: fallbackPoint.x,
+        y: fallbackPoint.y
+      }
+    }
+
+    let point = { x, y }
+    if (this.#matrix) {
+      point = transformPoint(point.x, point.y, this.#matrix)
+    }
+
+    return transformPoint(point.x, point.y, screenCTM)
+  }
+
+  #hideMultilineInput = () => {
+    if (!this.#multilineInput) {
+      return
+    }
+
+    Object.assign(this.#multilineInput.style, {
+      display: 'none',
+      visibility: 'hidden',
+      opacity: '0',
+      pointerEvents: 'none',
+      left: '-10000px',
+      top: '-10000px',
+      width: '1px',
+      height: '1px',
+      caretColor: ''
+    })
+  }
+
+  #getMultilineTextAlignment = (computedStyle) => {
+    const textAnchor = this.#curtext.getAttribute('text-anchor') || computedStyle.textAnchor || 'start'
+    if (textAnchor === 'middle') {
+      return 'center'
+    }
+    if (textAnchor === 'end') {
+      return 'end'
+    }
+    return 'start'
+  }
+
+  #ensureCursor = () => {
+    this.#cursor = getElement('text_cursor')
+    if (!this.#cursor) {
+      this.#cursor = document.createElementNS(NS.SVG, 'line')
+      assignAttributes(this.#cursor, {
+        id: 'text_cursor',
+        stroke: '#333',
+        'stroke-width': 1
+      })
+      getElement('selectorParentGroup').append(this.#cursor)
+    }
+
+    if (!this.#blinker) {
+      this.#blinker = setInterval(() => {
+        const show = this.#cursor.getAttribute('display') === 'none'
+        this.#cursor.setAttribute('display', show ? 'inline' : 'none')
+      }, 600)
+    }
+  }
+
+  #setMultilineCursor = (index = undefined) => {
+    if (!this.#textinput) {
+      return
+    }
+
+    if (index === undefined) {
+      index = this.#textinput.selectionEnd ?? this.#textinput.value.length
+    }
+
+    if (this.#textinput.selectionStart !== this.#textinput.selectionEnd) {
+      if (this.#cursor) {
+        this.#cursor.setAttribute('visibility', 'hidden')
+      }
+      return
+    }
+
+    this.#ensureCursor()
+
+    const tspans = [...this.#curtext.querySelectorAll('tspan')]
+    const renderedLines = (tspans.length ? tspans : [this.#curtext]).map((node) => {
+      const isEmptyLine = node.getAttribute?.('data-svgedit-empty-line') === 'true'
+      return {
+        text: isEmptyLine ? '' : (node.textContent ?? ''),
+        domLength: (node.textContent ?? '').length
+      }
+    })
+    const rawText = this.#textinput.value || ''
+    const mappings = []
+    let rawIndex = 0
+    let domIndex = 0
+
+    renderedLines.forEach(({ text: lineText, domLength }, lineIndex) => {
+      const rawStart = rawIndex
+      const domStart = domIndex
+      rawIndex += lineText.length
+      domIndex += domLength
+
+      let breakLength = 0
+      if (rawText.slice(rawIndex, rawIndex + 2) === '\r\n') {
+        breakLength = 2
+      } else if (rawText[rawIndex] === '\n' || rawText[rawIndex] === '\r') {
+        breakLength = 1
+      }
+
+      mappings.push({
+        lineIndex,
+        lineText,
+        rawStart,
+        rawEnd: rawIndex,
+        domStart,
+        domEnd: domStart + domLength,
+        breakLength
+      })
+
+      rawIndex += breakLength
+    })
+
+    let targetLine = mappings.length - 1
+    let column = mappings.at(-1)?.lineText.length ?? 0
+
+    for (let i = 0; i < mappings.length; i++) {
+      const mapping = mappings[i]
+      const breakEnd = mapping.rawEnd + mapping.breakLength
+
+      if (index < mapping.rawEnd || (index === mapping.rawEnd && mapping.breakLength === 0)) {
+        targetLine = i
+        column = Math.max(0, Math.min(index - mapping.rawStart, mapping.lineText.length))
+        break
+      }
+
+      if (mapping.breakLength > 0 && index <= breakEnd) {
+        targetLine = Math.min(i + 1, mappings.length - 1)
+        column = 0
+        break
+      }
+    }
+
+    const lineText = mappings[targetLine]?.lineText ?? ''
+    const frameX = Number(this.#curtext.getAttribute('x')) || 0
+    const fontSize = Number(this.#curtext.getAttribute('font-size')) || 16
+    const frameY = (Number(this.#curtext.getAttribute('y')) || fontSize) - fontSize
+    const lineHeight = Number(this.#curtext.getAttribute('data-svgedit-line-height')) || fontSize * 1.2
+    const domIndexForCursor = (mappings[targetLine]?.domStart ?? 0) + column
+
+    let caretX = frameX
+    if (lineText.length > 0) {
+      if (column <= 0) {
+        caretX = this.#curtext.getStartPositionOfChar(domIndexForCursor).x
+      } else if (column >= lineText.length) {
+        caretX = this.#curtext.getEndPositionOfChar(domIndexForCursor - 1).x
+      } else {
+        caretX = this.#curtext.getStartPositionOfChar(domIndexForCursor).x
+      }
+    }
+
+    const lineTop = frameY + targetLine * lineHeight
+    const startPt = this.#ptToScreen(caretX, lineTop)
+    const endPt = this.#ptToScreen(caretX, lineTop + lineHeight)
+
+    assignAttributes(this.#cursor, {
+      x1: startPt.x,
+      y1: startPt.y,
+      x2: endPt.x,
+      y2: endPt.y,
+      visibility: 'visible',
+      display: 'inline'
+    })
+
+    if (this.#selblock) {
+      this.#selblock.setAttribute('d', '')
+    }
+  }
+
+  #syncMultilineInput = () => {
+    if (!this.#isEditingMultiline() || !this.#textinput) {
+      return
+    }
+
+    const fontSize = Number(this.#curtext.getAttribute('font-size')) || 16
+    const lineHeight = Number(this.#curtext.getAttribute('data-svgedit-line-height')) || fontSize * 1.2
+    const frameX = Number(this.#curtext.getAttribute('x')) || 0
+    const frameY = (Number(this.#curtext.getAttribute('y')) || fontSize) - fontSize
+    const frameWidth = Math.max(Number(this.#curtext.getAttribute('data-svgedit-wrap-width')) || 1, 1)
+    const frameHeight = Math.max(Number(this.#curtext.getAttribute('data-svgedit-wrap-height')) || 1, 1)
+
+    const topLeft = this.#ptToViewport(frameX, frameY)
+    const topRight = this.#ptToViewport(frameX + frameWidth, frameY)
+    const bottomLeft = this.#ptToViewport(frameX, frameY + frameHeight)
+    const zoom = svgCanvas.getZoom()
+    const computedStyle = window.getComputedStyle(this.#curtext)
+
+    Object.assign(this.#textinput.style, {
+      position: 'fixed',
+      display: 'block',
+      visibility: 'visible',
+      opacity: '1',
+      pointerEvents: 'auto',
+      left: `${topLeft.x}px`,
+      top: `${topLeft.y}px`,
+      width: `${Math.max(topRight.x - topLeft.x, 1)}px`,
+      height: `${Math.max(bottomLeft.y - topLeft.y, 1)}px`,
+      fontFamily: computedStyle.fontFamily || this.#curtext.getAttribute('font-family') || 'sans-serif',
+      fontSize: `${fontSize * zoom}px`,
+      fontStyle: computedStyle.fontStyle || this.#curtext.getAttribute('font-style') || 'normal',
+      fontWeight: computedStyle.fontWeight || this.#curtext.getAttribute('font-weight') || 'normal',
+      lineHeight: `${lineHeight * zoom}px`,
+      letterSpacing: computedStyle.letterSpacing,
+      wordSpacing: computedStyle.wordSpacing,
+      direction: computedStyle.direction || 'ltr',
+      textAlign: this.#getMultilineTextAlignment(computedStyle),
+      textAlignLast: this.#getMultilineTextAlignment(computedStyle),
+      color: 'transparent',
+      caretColor: 'transparent'
+    })
+  }
 
   /**
    * Get the accumulated transformation matrix from the element up to the SVG content element.
@@ -86,6 +321,11 @@ class TextActions {
    * @private
    */
   #setCursor = (index = undefined) => {
+    if (this.#isEditingMultiline()) {
+      this.#setMultilineCursor(index)
+      return
+    }
+
     const empty = this.#textinput.value === ''
     this.#textinput.focus()
 
@@ -104,23 +344,7 @@ class TextActions {
     if (!empty) {
       this.#textinput.setSelectionRange(index, index)
     }
-    this.#cursor = getElement('text_cursor')
-    if (!this.#cursor) {
-      this.#cursor = document.createElementNS(NS.SVG, 'line')
-      assignAttributes(this.#cursor, {
-        id: 'text_cursor',
-        stroke: '#333',
-        'stroke-width': 1
-      })
-      getElement('selectorParentGroup').append(this.#cursor)
-    }
-
-    if (!this.#blinker) {
-      this.#blinker = setInterval(() => {
-        const show = this.#cursor.getAttribute('display') === 'none'
-        this.#cursor.setAttribute('display', show ? 'inline' : 'none')
-      }, 600)
-    }
+    this.#ensureCursor()
 
     const startPt = this.#ptToScreen(charbb.x, this.#textbb.y)
     const endPt = this.#ptToScreen(charbb.x, this.#textbb.y + this.#textbb.height)
@@ -371,9 +595,7 @@ class TextActions {
    */
   select (target, x, y) {
     this.#curtext = target
-    if (isMultilineTextElement(target)) {
-      return
-    }
+    svgCanvas.selectOnly?.([target])
     svgCanvas.textActions.toEditMode(x, y)
   }
 
@@ -383,9 +605,6 @@ class TextActions {
    */
   start (elem) {
     this.#curtext = elem
-    if (isMultilineTextElement(elem)) {
-      return
-    }
     svgCanvas.textActions.toEditMode()
   }
 
@@ -397,6 +616,10 @@ class TextActions {
    * @returns {void}
    */
   mouseDown (evt, mouseTarget, startX, startY) {
+    if (this.#isEditingMultiline()) {
+      this.#textinput.focus()
+      return
+    }
     const pt = this.#screenToPt(startX, startY)
 
     this.#textinput.focus()
@@ -413,6 +636,9 @@ class TextActions {
    * @returns {void}
    */
   mouseMove (mouseX, mouseY) {
+    if (this.#isEditingMultiline()) {
+      return
+    }
     const pt = this.#screenToPt(mouseX, mouseY)
     this.#setEndSelectionFromPoint(pt.x, pt.y)
   }
@@ -424,6 +650,12 @@ class TextActions {
    * @returns {void}
    */
   mouseUp (evt, mouseX, mouseY) {
+    if (this.#isEditingMultiline()) {
+      if (evt.target !== this.#curtext) {
+        svgCanvas.textActions.toSelectMode(true)
+      }
+      return
+    }
     const pt = this.#screenToPt(mouseX, mouseY)
 
     this.#setEndSelectionFromPoint(pt.x, pt.y, true)
@@ -470,6 +702,19 @@ class TextActions {
 
     this.#curtext.style.cursor = 'text'
 
+    if (this.#isEditingMultiline()) {
+      this.#syncMultilineInput()
+      this.#textinput.focus()
+      const index = this.#textinput.value.length
+      this.#textinput.setSelectionRange(index, index)
+      this.#setMultilineCursor(index)
+
+      setTimeout(() => {
+        this.#allowDbl = true
+      }, 300)
+      return
+    }
+
     // if (supportsEditableText()) {
     //   curtext.setAttribute('editable', 'simple');
     //   return;
@@ -493,7 +738,10 @@ class TextActions {
    * @returns {void}
    */
   toSelectMode (selectElem) {
-    svgCanvas.setCurrentMode('select')
+    const nextMode = this.#isEditingMultiline() && svgCanvas.useMultilineText
+      ? 'textmultiline'
+      : 'select'
+    svgCanvas.setCurrentMode(nextMode)
     clearInterval(this.#blinker)
     this.#blinker = null
     if (this.#selblock) {
@@ -502,6 +750,7 @@ class TextActions {
     if (this.#cursor) {
       this.#cursor.setAttribute('visibility', 'hidden')
     }
+    this.#hideMultilineInput()
     this.#curtext.style.cursor = 'move'
 
     if (selectElem) {
@@ -533,7 +782,19 @@ class TextActions {
    * @returns {void}
    */
   setInputElem (elem) {
+    this.#singlelineInput = elem
     this.#textinput = elem
+    if (!this.#multilineInput) {
+      this.#multilineInput = elem
+    }
+  }
+
+  /**
+   * @param {Element} elem
+   * @returns {void}
+   */
+  setMultilineInputElem (elem) {
+    this.#multilineInput = elem
   }
 
   /**
@@ -543,6 +804,13 @@ class TextActions {
     if (svgCanvas.getCurrentMode() === 'textedit') {
       svgCanvas.textActions.toSelectMode()
     }
+  }
+
+  /**
+   * @returns {Element|null}
+   */
+  getCurrentTextElement () {
+    return this.#curtext || null
   }
 
   /**
@@ -577,7 +845,14 @@ class TextActions {
     // when editing text inside a group with transforms
     this.#matrix = this.#getAccumulatedMatrix(this.#curtext)
 
+    this.#setActiveInput()
     this.#textinput.value = getRawMultilineText(this.#curtext)
+
+    if (this.#isEditingMultiline()) {
+      this.#syncMultilineInput()
+      this.#setMultilineCursor()
+      return
+    }
 
     this.#chardata = []
     this.#chardata.length = len

@@ -206,6 +206,13 @@ class EditorStartup {
     this.svgCanvas.bind('afterClear', this.afterClear.bind(this))
 
     this.svgCanvas.textActions.setInputElem($id('text'))
+    const multilineInput = $id('text_multiline')
+    multilineInput.spellcheck = false
+    multilineInput.setAttribute('autocomplete', 'off')
+    multilineInput.setAttribute('autocorrect', 'off')
+    multilineInput.setAttribute('autocapitalize', 'off')
+    document.body.append(multilineInput)
+    this.svgCanvas.textActions.setMultilineInputElem(multilineInput)
     this.svgCanvas.useMultilineText = false
 
     this.setBackground(this.configObj.pref('bkgd_color'), this.configObj.pref('bkgd_url'))
@@ -274,12 +281,37 @@ class EditorStartup {
       this.svgCanvas.setTextContent(evt.currentTarget.value)
     })
 
-    addListenerMulti($id('text_multiline'), 'keyup input', (evt) => {
+    $id('text_multiline').addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' || evt.altKey || evt.ctrlKey || evt.metaKey) {
+        return
+      }
+
+      evt.preventDefault()
+
+      const input = evt.currentTarget
+      const start = input.selectionStart ?? input.value.length
+      const end = input.selectionEnd ?? start
+      const nextValue = `${input.value.slice(0, start)}\n${input.value.slice(end)}`
+      const nextIndex = start + 1
       const selected = this.svgCanvas.getSelectedElements()[0]
+
+      input.value = nextValue
+      input.setSelectionRange(nextIndex, nextIndex)
+
       if (selected?.tagName === 'text') {
         selected.setAttribute('data-svgedit-multiline', 'true')
+        this.svgCanvas.setTextContent(nextValue)
       }
-      this.svgCanvas.setTextContent(evt.currentTarget.value)
+      this.svgCanvas.textActions.setCursor(nextIndex)
+    })
+
+    addListenerMulti($id('text_multiline'), 'keyup input click mouseup select', (evt) => {
+      const selected = this.svgCanvas.getSelectedElements()[0]
+      if ((evt.type === 'keyup' || evt.type === 'input') && selected?.tagName === 'text') {
+        selected.setAttribute('data-svgedit-multiline', 'true')
+        this.svgCanvas.setTextContent(evt.currentTarget.value)
+      }
+      this.svgCanvas.textActions.setCursor()
     })
 
     $id('link_url').addEventListener('change', (evt) => {
@@ -423,7 +455,12 @@ class EditorStartup {
         self.workarea.removeEventListener('mousedown', unfocus)
         // Go back to selecting text if in textedit mode
         if (self.svgCanvas.getMode() === 'textedit') {
-          $id('text').focus()
+          const selected = self.svgCanvas.getSelectedElements()[0]
+          const input = selected?.tagName === 'text' &&
+            selected.getAttribute('data-svgedit-multiline') === 'true'
+            ? $id('text_multiline')
+            : $id('text')
+          input.focus()
         }
       })
     })
@@ -785,6 +822,7 @@ class EditorStartup {
         cs = `url("./images/cursors/${mode}_cursor.svg"), crosshair`
         break
       case 'text':
+      case 'textmultiline':
         // #TODO: Cursor should be changed back to default after text element was created
         cs = 'text'
         break
@@ -801,7 +839,7 @@ class EditorStartup {
   cancelTool () {
     const mode = this.svgCanvas.getMode()
     // list of modes that are currently save to cancel
-    const modesToCancel = ['zoom', 'rect', 'square', 'circle', 'ellipse', 'line', 'text', 'star', 'polygon', 'shapelib', 'image']
+    const modesToCancel = ['zoom', 'rect', 'square', 'circle', 'ellipse', 'line', 'text', 'textmultiline', 'star', 'polygon', 'shapelib', 'image']
     if (modesToCancel.includes(mode)) {
       this.leftPanel.clickSelect()
     }

@@ -969,13 +969,25 @@ const getTextMethod = () => {
 * @returns {void}
 */
 const setTextContentMethod = (val) => {
-  svgCanvas.changeSelectedAttribute('#text', val)
+  const editingText = svgCanvas.textActions.getCurrentTextElement?.()
   const selected = svgCanvas.getSelectedElements()[0]
+  if (
+    svgCanvas.getCurrentMode() === 'textedit' &&
+    editingText?.tagName === 'text' &&
+    selected !== editingText
+  ) {
+    svgCanvas.selectOnly?.([editingText])
+  }
+
+  svgCanvas.changeSelectedAttribute('#text', val)
+  const activeText = svgCanvas.getSelectedElements()[0] || editingText
   const hasHardBreaks = String(val).includes('\n') || String(val).includes('\r')
-  const shouldApplyMultiline = selected?.tagName === 'text' && (isMultilineTextElement(selected) || hasHardBreaks)
+  const shouldApplyMultiline =
+    activeText?.tagName === 'text' &&
+    (isMultilineTextElement(activeText) || hasHardBreaks)
 
   if (shouldApplyMultiline) {
-    applyMultilineText(selected, val)
+    applyMultilineText(activeText, val)
   }
 
   if (svgCanvas.getCurrentMode() === 'textedit' && !shouldApplyMultiline) {

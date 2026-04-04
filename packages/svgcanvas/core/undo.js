@@ -16,6 +16,12 @@ import {
 import {
   transformPoint, transformListToTransform, getTransformList
 } from './math.js'
+import {
+  applyMultilineText,
+  getRawMultilineText,
+  isMultilineTextElement,
+  syncMultilineFrameRect
+} from './multiline-text.js'
 
 const {
   UndoManager, HistoryEventTypes
@@ -114,6 +120,11 @@ export const getUndoManager = () => {
 
               tspans[i].setAttribute('x', x)
               tspans[i].setAttribute('y', y)
+            }
+
+            if (isMultilineTextElement(cmd.elem)) {
+              syncMultilineFrameRect(cmd.elem)
+              applyMultilineText(cmd.elem, getRawMultilineText(cmd.elem))
             }
           }
         }
