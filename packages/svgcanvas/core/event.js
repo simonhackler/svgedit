@@ -1323,19 +1323,22 @@ const mouseDownEvent = (evt) => {
   if (mouseTarget === svgCanvas.selectorManager.selectorParentGroup && selectedElements[0]) {
     const grip = evt.target
     const griptype = dataStorage.get(grip, 'type')
+    const selected = selectedElements[0]
     // rotating
     if (griptype === 'rotate') {
       svgCanvas.setCurrentMode('rotate')
       // svgCanvas.setCurrentRotateMode(dataStorage.get(grip, 'dir'));
+      mouseTarget = selected
       // resizing
     } else if (griptype === 'resize') {
       svgCanvas.setCurrentMode('resize')
       svgCanvas.setCurrentResizeMode(dataStorage.get(grip, 'dir'))
+      mouseTarget = selected
     } else if (griptype === 'textresize') {
       // Keep selectorParentGroup as the mouse target so multiline mode can
       // handle its dedicated frame resize grip separately.
     } else {
-      mouseTarget = selectedElements[0]
+      mouseTarget = selected
     }
   }
 
