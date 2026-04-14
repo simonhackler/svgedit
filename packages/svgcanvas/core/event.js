@@ -6,7 +6,7 @@
  */
 import {
   assignAttributes, cleanupElement, getElement, getRotationAngle, snapToGrid, walkTree,
-  preventClickDefault, setHref, getBBox, findDefs
+  preventClickDefault, setHref, getBBox, findDefs, getStrokedBBoxDefaultVisible
 } from './utilities.js'
 import {
   applyMultilineText,
@@ -108,6 +108,15 @@ const updateTransformList = (svgRoot, element, dx, dy) => {
   }
 }
 
+const clampDragDeltaToBounds = (delta, minDelta, maxDelta) => {
+  if (!Number.isFinite(minDelta) || !Number.isFinite(maxDelta)) {
+    return delta
+  }
+  const lowerBound = Math.min(minDelta, maxDelta)
+  const upperBound = Math.max(minDelta, maxDelta)
+  return Math.max(lowerBound, Math.min(upperBound, delta))
+}
+
 /**
  *
  * @param {MouseEvent} evt
@@ -166,6 +175,22 @@ const mouseMoveEvent = (evt) => {
         if (svgCanvas.getCurConfig().gridSnapping) {
           dx = snapToGrid(dx)
           dy = snapToGrid(dy)
+        }
+
+        const dragSelectionBBox = svgCanvas.dragSelectionBBox
+        const contentW = Number(svgCanvas.contentW)
+        const contentH = Number(svgCanvas.contentH)
+        if (dragSelectionBBox) {
+          if (Number.isFinite(contentW) && contentW > 0) {
+            const minDx = -dragSelectionBBox.x
+            const maxDx = contentW - (dragSelectionBBox.x + dragSelectionBBox.width)
+            dx = clampDragDeltaToBounds(dx, minDx, maxDx)
+          }
+          if (Number.isFinite(contentH) && contentH > 0) {
+            const minDy = -dragSelectionBBox.y
+            const maxDy = contentH - (dragSelectionBBox.y + dragSelectionBBox.height)
+            dy = clampDragDeltaToBounds(dy, minDy, maxDy)
+          }
         }
 
         // Enable moving selection only if mouse has been moved at least 4 px in any direction
@@ -684,6 +709,7 @@ const mouseUpEvent = (evt) => {
   // TODO: Make true when in multi-unit mode
   const useUnit = false // (svgCanvas.getCurConfig().baseUnit !== 'px');
   svgCanvas.setStarted(false)
+  svgCanvas.dragSelectionBBox = null
   let t
   switch (svgCanvas.getCurrentMode()) {
     // intentionally fall-through to select here
@@ -1287,6 +1313,10 @@ const mouseDownEvent = (evt) => {
         // else if it's a path, go into pathedit mode in mouseup
 
         if (!rightClick) {
+          const dragElements = svgCanvas.getSelectedElements().filter(Boolean)
+          svgCanvas.dragSelectionBBox = dragElements.length
+            ? getStrokedBBoxDefaultVisible(dragElements)
+            : null
           // insert a dummy transform so if the element(s) are moved it will have
           // a transform to use for its translate
           for (const selectedElement of selectedElements) {
