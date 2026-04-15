@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "XDG_CACHE_HOME=\"$HOME/projects/agents-hook-runner/.cache\" uv run python \"$HOME/projects/agents-hook-runner/hookflow.py\" \"$HOME/projects/agents-hook-runner/workflow.yaml\" --hook",
+            "statusMessage": "Running svgedit repository checks",
+            "timeout": 3600
+          }
+        ]
+      }
+    ]
+  }
+}
