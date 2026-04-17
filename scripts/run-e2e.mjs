@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { copyFile, mkdir, readdir, readFile, stat } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 
@@ -99,10 +99,16 @@ const seedNycFromVitest = async () => {
   }
 }
 
+const clearNycOutput = async () => {
+  const nycOutputDir = join(process.cwd(), '.nyc_output')
+  await rm(nycOutputDir, { recursive: true, force: true })
+  await mkdir(nycOutputDir, { recursive: true })
+}
+
 if (await hasPlaywright()) {
   await ensureBrowser()
   await ensureBuild()
-  await run('rimraf', ['.nyc_output/*'], { shell: true })
+  await clearNycOutput()
   await seedNycFromVitest()
   await run('npx', ['playwright', 'test'])
   await run('npx', ['nyc', 'report', '--reporter', 'text-summary', '--reporter', 'json-summary'])

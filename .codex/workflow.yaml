@@ -22,7 +22,7 @@ steps:
       - --silent=passed-only
     cwd: "{{ cwd }}"
     timeout_seconds: 1800
-    on_error: Vitest failed. Fix the failing unit tests before continuing.
+    on_error: Vitest failed. Find out what changes you made that made the tests fail. Then fix those changes and make the tests pass.
   - id: e2e
     description: Run svgedit end-to-end tests
     run: node
@@ -30,4 +30,4 @@ steps:
       - scripts/run-e2e.mjs
     cwd: "{{ cwd }}"
     timeout_seconds: 3600
-    on_error: End-to-end tests failed. Fix the Playwright or browser test issues before continuing.
+    on_error: End-to-end tests failed. Fix the Playwright or browser test issues before continuing. Find out what changes you made that made the tests fail. Then fix those changes and make the tests pass.
