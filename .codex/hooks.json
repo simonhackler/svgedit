@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --project \"$HOME/projects/agents-hook-runner\" agents-hook-runner \"$HOME/projects/agents-hook-runner/workflow.yaml\" --hook",
+            "command": "uvx --isolated --from \"git+https://github.com/simonhackler/agent-hook-runner.git\" agents-hook-runner \"$(git rev-parse --show-toplevel)/.codex/workflow.yaml\" --hook",
             "statusMessage": "Running svgedit repository checks",
             "timeout": 3600
           }

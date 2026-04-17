@@ -1,0 +1,33 @@
+name: svgedit-tests
+target: codex-stop
+fail_strategy: collect-all
+
+steps:
+  - id: lint
+    description: Run svgedit lint checks
+    run: npx
+    args:
+      - standard
+      - .
+    cwd: "{{ cwd }}"
+    timeout_seconds: 600
+    on_error: Lint failed. Fix the reported standard issues before continuing.
+  - id: vitest
+    description: Run svgedit unit tests with concise Vitest output
+    run: npx
+    args:
+      - vitest
+      - run
+      - --reporter=dot
+      - --silent=passed-only
+    cwd: "{{ cwd }}"
+    timeout_seconds: 1800
+    on_error: Vitest failed. Fix the failing unit tests before continuing.
+  - id: e2e
+    description: Run svgedit end-to-end tests
+    run: node
+    args:
+      - scripts/run-e2e.mjs
+    cwd: "{{ cwd }}"
+    timeout_seconds: 3600
+    on_error: End-to-end tests failed. Fix the Playwright or browser test issues before continuing.
