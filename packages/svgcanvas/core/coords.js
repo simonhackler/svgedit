@@ -77,6 +77,7 @@ export const remapElement = (selected, changes, m) => {
   const scaleh = (h) => m.d * h
   const doSnapping =
     svgCanvas.getGridSnapping?.() &&
+    !svgCanvas.suspendGridSnapping &&
     selected?.parentNode?.parentNode?.localName === 'svg'
 
   const finishUp = () => {

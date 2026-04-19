@@ -224,10 +224,12 @@ const mouseMoveEvent = (evt) => {
           svgCanvas.dragStartTransforms.set(selectedElement, selectedElement.getAttribute('transform') || '')
           const slist = getTransformList(selectedElement)
           if (!slist) { continue }
+          const dragTransform = svgRoot.createSVGTransform()
+          dragTransform.setTranslate(0, 0)
           if (slist.numberOfItems) {
-            slist.insertItemBefore(svgRoot.createSVGTransform(), 0)
+            slist.insertItemBefore(dragTransform, 0)
           } else {
-            slist.appendItem(svgRoot.createSVGTransform())
+            slist.appendItem(dragTransform)
           }
         }
         svgCanvas.hasDragStartTransform = true
@@ -241,6 +243,7 @@ const mouseMoveEvent = (evt) => {
         const dragBBox =
           svgCanvas.dragSelectionBBox || getStrokedBBoxDefaultVisible(selectedElements)
         const moveSnap = resolveSelectionSnap(dragBBox, dx, dy)
+        svgCanvas.interactionSnapTarget = moveSnap.snapTarget || null
         dx = moveSnap.dx
         dy = moveSnap.dy
 
@@ -325,6 +328,7 @@ const mouseMoveEvent = (evt) => {
         dx,
         dy
       )
+      svgCanvas.interactionSnapTarget = resizeSnap.snapTarget || null
       dx = resizeSnap.dx
       dy = resizeSnap.dy
 
@@ -758,6 +762,7 @@ const mouseUpEvent = (evt) => {
 
   const tempJustSelected = svgCanvas.getJustSelected()
   svgCanvas.setJustSelected(null)
+  const interactionMode = svgCanvas.getCurrentMode()
 
   const pt = transformPoint(evt.clientX, evt.clientY, svgCanvas.getrootSctm())
   const mouseX = pt.x * zoom
@@ -770,6 +775,8 @@ const mouseUpEvent = (evt) => {
 
   const realX = x
   const realY = y
+  const interactionSnapTarget = svgCanvas.interactionSnapTarget || null
+  svgCanvas.interactionSnapTarget = null
 
   // TODO: Make true when in multi-unit mode
   const useUnit = false // (svgCanvas.getCurConfig().baseUnit !== 'px');
@@ -818,60 +825,71 @@ const mouseUpEvent = (evt) => {
           // Only recalculate dimensions after actual dragging/resizing to avoid
           // unwanted transform flattening on simple clicks
 
-          // Create a single batch command for all moved elements
-          const batchCmd = new BatchCommand('position')
+          const previousSuppressGridSnapping = svgCanvas.suspendGridSnapping
+          if (interactionSnapTarget === 'page-border') {
+            svgCanvas.suspendGridSnapping = true
+          }
+          try {
+            // Create a single batch command for all moved elements
+            const batchCmd = new BatchCommand('position')
 
-          selectedElements.forEach((elem) => {
-            if (!elem) return
+            selectedElements.forEach((elem) => {
+              if (!elem) return
 
-            const tlist = getTransformList(elem)
-            if (!tlist || tlist.numberOfItems === 0) return
+              const tlist = getTransformList(elem)
+              if (!tlist || tlist.numberOfItems === 0) return
 
-            // Get the transform from BEFORE the drag started
-            const oldTransform = svgCanvas.dragStartTransforms?.get(elem) || ''
+              // Get the transform from BEFORE the drag started
+              const oldTransform = svgCanvas.dragStartTransforms?.get(elem) || ''
 
-            // Check if the first transform is a translate (the drag transform we added)
-            const firstTransform = tlist.getItem(0)
-            const hasDragTranslate = firstTransform.type === 2 // SVG_TRANSFORM_TRANSLATE
+              // Check if the first transform is a translate (the drag transform we added)
+              const firstTransform = tlist.getItem(0)
+              const hasDragTranslate = firstTransform.type === 2 // SVG_TRANSFORM_TRANSLATE
 
-            // For groups, we always consolidate the transforms (recalculateDimensions returns null for groups)
-            const isGroup = elem.tagName === 'g' || elem.tagName === 'a'
+              // For groups, we always consolidate the transforms (recalculateDimensions returns null for groups)
+              const isGroup = elem.tagName === 'g' || elem.tagName === 'a'
 
-            // If element has 2+ transforms, or is a group with a drag translate, consolidate
-            if ((tlist.numberOfItems > 1 && hasDragTranslate) || (isGroup && hasDragTranslate)) {
-              const consolidatedMatrix = transformListToTransform(tlist).matrix
+              // If element has 2+ transforms, or is a group with a drag translate, consolidate
+              if (
+                interactionMode !== 'resize' &&
+                ((tlist.numberOfItems > 1 && hasDragTranslate) || (isGroup && hasDragTranslate))
+              ) {
+                const consolidatedMatrix = transformListToTransform(tlist).matrix
 
-              // Clear the transform list
-              while (tlist.numberOfItems > 0) {
-                tlist.removeItem(0)
-              }
+                // Clear the transform list
+                while (tlist.numberOfItems > 0) {
+                  tlist.removeItem(0)
+                }
 
-              // Add the consolidated matrix
-              const newTransform = svgCanvas.getSvgRoot().createSVGTransform()
-              newTransform.setMatrix(consolidatedMatrix)
-              tlist.appendItem(newTransform)
+                // Add the consolidated matrix
+                const newTransform = svgCanvas.getSvgRoot().createSVGTransform()
+                newTransform.setMatrix(consolidatedMatrix)
+                tlist.appendItem(newTransform)
 
-              // Record the transform change for undo
-              batchCmd.addSubCommand(new ChangeElementCommand(elem, { transform: oldTransform }))
-              return
-            }
-
-            // For non-group elements with simple transforms, try recalculateDimensions
-            const cmd = svgCanvas.recalculateDimensions(elem)
-            if (cmd) {
-              batchCmd.addSubCommand(cmd)
-            } else {
-              // recalculateDimensions returned null
-              // Check if the transform actually changed and record it manually
-              const newTransform = elem.getAttribute('transform') || ''
-              if (newTransform !== oldTransform) {
+                // Record the transform change for undo
                 batchCmd.addSubCommand(new ChangeElementCommand(elem, { transform: oldTransform }))
+                return
               }
-            }
-          })
 
-          if (!batchCmd.isEmpty()) {
-            svgCanvas.addCommandToHistory(batchCmd)
+              // For non-group elements with simple transforms, try recalculateDimensions
+              const cmd = svgCanvas.recalculateDimensions(elem)
+              if (cmd) {
+                batchCmd.addSubCommand(cmd)
+              } else {
+                // recalculateDimensions returned null
+                // Check if the transform actually changed and record it manually
+                const newTransform = elem.getAttribute('transform') || ''
+                if (newTransform !== oldTransform) {
+                  batchCmd.addSubCommand(new ChangeElementCommand(elem, { transform: oldTransform }))
+                }
+              }
+            })
+
+            if (!batchCmd.isEmpty()) {
+              svgCanvas.addCommandToHistory(batchCmd)
+            }
+          } finally {
+            svgCanvas.suspendGridSnapping = previousSuppressGridSnapping
           }
 
           // Clear the stored transforms AND reset the flag together
@@ -1341,6 +1359,7 @@ const mouseDownEvent = (evt) => {
 
   if (svgCanvas.spaceKey || evt.button === 1) { return }
   svgCanvas.hidePageSnapIndicator?.()
+  svgCanvas.interactionSnapTarget = null
 
   const rightClick = (evt.button === 2)
 

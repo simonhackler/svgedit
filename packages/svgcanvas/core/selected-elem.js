@@ -202,6 +202,7 @@ const moveUpDownSelected = dir => {
 const moveSelectedElements = (dx, dy, undoable = true, snapToPageBorder = false) => {
   const selectedElements = svgCanvas.getSelectedElements()
   const zoom = svgCanvas.getZoom()
+  let suppressGridSnapping = false
   // if undoable is not sent, default to true
   // if single values, scale them to the zoom
   if (!Array.isArray(dx)) {
@@ -213,49 +214,58 @@ const moveSelectedElements = (dx, dy, undoable = true, snapToPageBorder = false)
       if (snap) {
         dx = snap.dx
         dy = snap.dy
+        suppressGridSnapping = snap.snapTarget === 'page-border'
       }
     }
   }
 
   const batchCmd = new BatchCommand('position')
-  selectedElements.forEach((selected, i) => {
-    if (selected) {
-      // Store the existing transform before modifying
-      const existingTransform = selected.getAttribute('transform') || ''
+  const previousSuppressGridSnapping = svgCanvas.suspendGridSnapping
+  if (suppressGridSnapping) {
+    svgCanvas.suspendGridSnapping = true
+  }
+  try {
+    selectedElements.forEach((selected, i) => {
+      if (selected) {
+        // Store the existing transform before modifying
+        const existingTransform = selected.getAttribute('transform') || ''
 
-      const xform = svgCanvas.getSvgRoot().createSVGTransform()
-      const tlist = getTransformList(selected)
+        const xform = svgCanvas.getSvgRoot().createSVGTransform()
+        const tlist = getTransformList(selected)
 
-      // dx and dy could be arrays
-      if (Array.isArray(dx)) {
-        xform.setTranslate(dx[i], dy[i])
-      } else {
-        xform.setTranslate(dx, dy)
+        // dx and dy could be arrays
+        if (Array.isArray(dx)) {
+          xform.setTranslate(dx[i], dy[i])
+        } else {
+          xform.setTranslate(dx, dy)
+        }
+
+        if (tlist.numberOfItems) {
+          tlist.insertItemBefore(xform, 0)
+        } else {
+          tlist.appendItem(xform)
+        }
+
+        const cmd = recalculateDimensions(selected)
+        if (cmd) {
+          batchCmd.addSubCommand(cmd)
+        } else if ((selected.getAttribute('transform') || '') !== existingTransform) {
+          // For groups and other elements where recalculateDimensions returns null,
+          // record the transform change directly
+          batchCmd.addSubCommand(
+            new ChangeElementCommand(selected, { transform: existingTransform })
+          )
+        }
+
+        svgCanvas
+          .gettingSelectorManager()
+          .requestSelector(selected)
+          .resize()
       }
-
-      if (tlist.numberOfItems) {
-        tlist.insertItemBefore(xform, 0)
-      } else {
-        tlist.appendItem(xform)
-      }
-
-      const cmd = recalculateDimensions(selected)
-      if (cmd) {
-        batchCmd.addSubCommand(cmd)
-      } else if ((selected.getAttribute('transform') || '') !== existingTransform) {
-        // For groups and other elements where recalculateDimensions returns null,
-        // record the transform change directly
-        batchCmd.addSubCommand(
-          new ChangeElementCommand(selected, { transform: existingTransform })
-        )
-      }
-
-      svgCanvas
-        .gettingSelectorManager()
-        .requestSelector(selected)
-        .resize()
-    }
-  })
+    })
+  } finally {
+    svgCanvas.suspendGridSnapping = previousSuppressGridSnapping
+  }
   if (!batchCmd.isEmpty()) {
     if (undoable) {
       svgCanvas.addCommandToHistory(batchCmd)

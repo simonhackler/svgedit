@@ -193,4 +193,28 @@ describe('selected-elem', () => {
     expect(rect.getAttribute('x')).toBe('0')
     expect(rect.getAttribute('y')).toBe('20')
   })
+
+  it('preserves page-border snapping even when grid snapping is enabled', () => {
+    const rect = svgCanvas.addSVGElementsFromJson({
+      element: 'rect',
+      attr: {
+        id: 'rect-move-snap-grid',
+        x: 600,
+        y: 20,
+        width: 35,
+        height: 40
+      }
+    })
+
+    svgCanvas.setConfig({
+      gridSnapping: true,
+      pageBorderSnapping: true,
+      snappingStep: 10
+    })
+    svgCanvas.selectOnly([rect], true)
+    svgCanvas.moveSelectedElements(2, 0, true, true)
+
+    expect(rect.getAttribute('x')).toBe('605')
+    expect(Number(rect.getAttribute('x')) + Number(rect.getAttribute('width'))).toBe(640)
+  })
 })
