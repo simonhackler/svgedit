@@ -40,6 +40,7 @@ export interface Config {
   baseUnit?: string
   snappingStep?: number
   gridSnapping?: boolean
+  pageBorderSnapping?: boolean
   gridColor?: string
   dimensions?: [number, number]
   initOpacity?: number
@@ -61,6 +62,16 @@ export interface BBox {
   y: number
   width: number
   height: number
+}
+
+export interface PageSnapResult {
+  snapped: boolean
+  type?: 'edge' | 'corner'
+  edge?: 'top' | 'right' | 'bottom' | 'left' | null
+  horizontalEdge?: 'top' | 'bottom' | null
+  verticalEdge?: 'left' | 'right' | null
+  corner?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null
+  snapTarget?: 'page-border' | 'grid' | null
 }
 
 export interface EditorContext {
@@ -137,9 +148,15 @@ export default class SvgCanvas {
   setResolution(width: number | string, height: number | string): boolean
   getZoom(): number
   setZoom(zoomLevel: number): void
+  getPageBounds(): { left: number, top: number, right: number, bottom: number }
+  resolvePointSnap(x: number, y: number): PageSnapResult & { x: number, y: number }
+  resolveSelectionSnap(bbox: BBox, dx: number, dy: number): PageSnapResult & { dx: number, dy: number }
+  resolveResizeSnap(resizeMode: string, bbox: BBox, dx: number, dy: number): PageSnapResult & { dx: number, dy: number }
+  showPageSnapIndicator(snapResult: PageSnapResult & { x?: number | null, y?: number | null }): void
+  hidePageSnapIndicator(): void
   
   // Element manipulation
-  moveSelectedElements(dx: number, dy: number, undoable?: boolean): void
+  moveSelectedElements(dx: number, dy: number, undoable?: boolean, snapToPageBorder?: boolean): void
   deleteSelectedElements(): void
   cutSelectedElements(): void
   copySelectedElements(): void

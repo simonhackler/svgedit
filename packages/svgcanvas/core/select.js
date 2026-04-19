@@ -409,6 +409,9 @@ export class SelectorManager {
     this.selectorGripsGroup = null
     this.rotateGripConnector = null
     this.rotateGrip = null
+    this.pageSnapIndicatorGroup = null
+    this.pageSnapIndicatorLine = null
+    this.pageSnapIndicatorCorner = null
 
     this.initGroup()
   }
@@ -434,6 +437,42 @@ export class SelectorManager {
       attr: { display: 'none' }
     })
     this.selectorParentGroup.append(this.selectorGripsGroup)
+    this.pageSnapIndicatorGroup = svgCanvas.createSVGElement({
+      element: 'g',
+      attr: {
+        id: 'pageSnapIndicator',
+        display: 'none',
+        style: 'pointer-events:none'
+      }
+    })
+    this.pageSnapIndicatorLine = svgCanvas.createSVGElement({
+      element: 'line',
+      attr: {
+        id: 'pageSnapIndicatorLine',
+        display: 'none',
+        stroke: '#f80',
+        'stroke-width': 2,
+        'stroke-dasharray': '6,3',
+        'vector-effect': 'non-scaling-stroke'
+      }
+    })
+    this.pageSnapIndicatorCorner = svgCanvas.createSVGElement({
+      element: 'circle',
+      attr: {
+        id: 'pageSnapIndicatorCorner',
+        display: 'none',
+        fill: '#fff',
+        stroke: '#f80',
+        'stroke-width': 2,
+        'vector-effect': 'non-scaling-stroke',
+        r: gripRadius + 1
+      }
+    })
+    this.pageSnapIndicatorGroup.append(
+      this.pageSnapIndicatorLine,
+      this.pageSnapIndicatorCorner
+    )
+    this.selectorParentGroup.append(this.pageSnapIndicatorGroup)
     svgCanvas.getSvgRoot().append(this.selectorParentGroup)
 
     this.selectorMap = {}
@@ -607,6 +646,48 @@ export class SelectorManager {
       this.selectorParentGroup.append(this.rubberBandBox)
     }
     return this.rubberBandBox
+  }
+
+  hidePageSnapIndicator () {
+    this.pageSnapIndicatorGroup?.setAttribute('display', 'none')
+    this.pageSnapIndicatorLine?.setAttribute('display', 'none')
+    this.pageSnapIndicatorCorner?.setAttribute('display', 'none')
+  }
+
+  showPageSnapIndicator (snapResult, pageBounds) {
+    if (!snapResult?.snapTarget || snapResult.snapTarget !== 'page-border') {
+      this.hidePageSnapIndicator()
+      return
+    }
+
+    const zoom = svgCanvas.getZoom()
+    this.pageSnapIndicatorGroup?.setAttribute('display', 'inline')
+
+    if (snapResult.type === 'corner') {
+      this.pageSnapIndicatorLine?.setAttribute('display', 'none')
+      this.pageSnapIndicatorCorner?.setAttribute('display', 'inline')
+      this.pageSnapIndicatorCorner?.setAttribute('cx', String((snapResult.x || 0) * zoom))
+      this.pageSnapIndicatorCorner?.setAttribute('cy', String((snapResult.y || 0) * zoom))
+      return
+    }
+
+    this.pageSnapIndicatorCorner?.setAttribute('display', 'none')
+    this.pageSnapIndicatorLine?.setAttribute('display', 'inline')
+
+    if (snapResult.edge === 'top' || snapResult.edge === 'bottom') {
+      const y = (snapResult.y || 0) * zoom
+      this.pageSnapIndicatorLine?.setAttribute('x1', '0')
+      this.pageSnapIndicatorLine?.setAttribute('y1', String(y))
+      this.pageSnapIndicatorLine?.setAttribute('x2', String(pageBounds.right * zoom))
+      this.pageSnapIndicatorLine?.setAttribute('y2', String(y))
+      return
+    }
+
+    const x = (snapResult.x || 0) * zoom
+    this.pageSnapIndicatorLine?.setAttribute('x1', String(x))
+    this.pageSnapIndicatorLine?.setAttribute('y1', '0')
+    this.pageSnapIndicatorLine?.setAttribute('x2', String(x))
+    this.pageSnapIndicatorLine?.setAttribute('y2', String(pageBounds.bottom * zoom))
   }
 }
 

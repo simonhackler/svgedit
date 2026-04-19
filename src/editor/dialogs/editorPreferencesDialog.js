@@ -22,6 +22,7 @@ export class SeEditPrefsDialog extends HTMLElement {
     this.$bgBlocks = this._shadowRoot.querySelector('#bg_blocks')
     this.$bgURL = this._shadowRoot.querySelector('#canvas_bg_url')
     this.$gridSnappingOn = this._shadowRoot.querySelector('#grid_snapping_on')
+    this.$pageBorderSnappingOn = this._shadowRoot.querySelector('#page_border_snapping_on')
     this.$gridSnappingStep = this._shadowRoot.querySelector('#grid_snapping_step')
     this.$gridColor = this._shadowRoot.querySelector('#grid_color')
     this.$showRulers = this._shadowRoot.querySelector('#show_rulers')
@@ -43,6 +44,7 @@ export class SeEditPrefsDialog extends HTMLElement {
     this.setAttribute('config-editor_bg_note', i18next.t('config.editor_bg_note'))
     this.setAttribute('config-grid', i18next.t('config.grid'))
     this.setAttribute('config-snapping_onoff', i18next.t('config.snapping_onoff'))
+    this.setAttribute('config-page_border_snapping_onoff', i18next.t('config.page_border_snapping_onoff'))
     this.setAttribute('config-snapping_stepsize', i18next.t('config.snapping_stepsize'))
     this.setAttribute('config-grid_color', i18next.t('config.grid_color'))
     this.setAttribute('config-units_and_rulers', i18next.t('config.units_and_rulers'))
@@ -56,7 +58,7 @@ export class SeEditPrefsDialog extends HTMLElement {
    */
   static get observedAttributes () {
     // eslint-disable-next-line max-len
-    return ['dialog', 'lang', 'canvasbg', 'bgurl', 'gridsnappingon', 'gridsnappingstep', 'gridcolor', 'showrulers', 'baseunit', 'common-ok', 'common-cancel', 'config-editor_prefs', 'config-language', 'config-background', 'common-url', 'config-editor_bg_note', 'config-grid', 'config-snapping_onoff', 'config-snapping_stepsize', 'config-grid_color', 'config-units_and_rulers', 'config-show_rulers', 'config-base_unit']
+    return ['dialog', 'lang', 'canvasbg', 'bgurl', 'gridsnappingon', 'pagebordersnappingon', 'gridsnappingstep', 'gridcolor', 'showrulers', 'baseunit', 'common-ok', 'common-cancel', 'config-editor_prefs', 'config-language', 'config-background', 'common-url', 'config-editor_bg_note', 'config-grid', 'config-snapping_onoff', 'config-page_border_snapping_onoff', 'config-snapping_stepsize', 'config-grid_color', 'config-units_and_rulers', 'config-show_rulers', 'config-base_unit']
   }
 
   /**
@@ -108,6 +110,13 @@ export class SeEditPrefsDialog extends HTMLElement {
           this.$gridSnappingOn.checked = false
         }
         break
+      case 'pagebordersnappingon':
+        if (newValue === 'true') {
+          this.$pageBorderSnappingOn.checked = true
+        } else if (newValue === 'false') {
+          this.$pageBorderSnappingOn.checked = false
+        }
+        break
       case 'gridsnappingstep':
         this.$gridSnappingStep.value = newValue
         break
@@ -156,6 +165,10 @@ export class SeEditPrefsDialog extends HTMLElement {
         break
       case 'config-snapping_onoff':
         node = this._shadowRoot.querySelector('#svginfo_snap_onoff')
+        node.textContent = newValue
+        break
+      case 'config-page_border_snapping_onoff':
+        node = this._shadowRoot.querySelector('#svginfo_page_border_snap_onoff')
         node.textContent = newValue
         break
       case 'config-snapping_stepsize':
@@ -284,6 +297,22 @@ export class SeEditPrefsDialog extends HTMLElement {
    * @function get
    * @returns {any}
    */
+  get pagebordersnappingon () {
+    return this.getAttribute('pagebordersnappingon')
+  }
+
+  /**
+   * @function set
+   * @returns {void}
+   */
+  set pagebordersnappingon (value) {
+    this.setAttribute('pagebordersnappingon', value)
+  }
+
+  /**
+   * @function get
+   * @returns {any}
+   */
   get gridcolor () {
     return this.getAttribute('gridcolor')
   }
@@ -350,6 +379,7 @@ export class SeEditPrefsDialog extends HTMLElement {
           bgcolor: color,
           bgurl: this.$bgURL.value,
           gridsnappingon: this.$gridSnappingOn.checked,
+          pagebordersnappingon: this.$pageBorderSnappingOn.checked,
           gridsnappingstep: this.$gridSnappingStep.value,
           showrulers: this.$showRulers.checked,
           baseunit: this.$baseUnit.value

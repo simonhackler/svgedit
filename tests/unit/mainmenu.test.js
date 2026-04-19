@@ -34,6 +34,7 @@ describe('MainMenu', () => {
         exportWindowType: 'new',
         canvasName: 'svg-edit',
         gridSnapping: false,
+        pageBorderSnapping: false,
         snappingStep: 1,
         gridColor: '#ccc',
         showRulers: false
@@ -104,6 +105,7 @@ describe('MainMenu', () => {
       bgcolor: '#111',
       bgurl: '',
       gridsnappingon: true,
+      pagebordersnappingon: true,
       gridsnappingstep: 2,
       gridcolor: '#333',
       showrulers: true,
@@ -115,6 +117,7 @@ describe('MainMenu', () => {
     expect(editor.setBackground).toHaveBeenCalledWith('#111', '')
     expect(prefStore.lang).toBe('fr')
     expect(editor.configObj.curConfig.gridSnapping).toBe(true)
+    expect(editor.configObj.curConfig.pageBorderSnapping).toBe(true)
     expect(editor.configObj.curConfig.snappingStep).toBe(2)
     expect(editor.configObj.curConfig.gridColor).toBe('#333')
     expect(editor.configObj.curConfig.showRulers).toBe(true)
@@ -144,6 +147,7 @@ describe('MainMenu', () => {
 
   it('opens preferences dialog only once and populates attributes', () => {
     editor.configObj.curConfig.gridSnapping = true
+    editor.configObj.curConfig.pageBorderSnapping = true
     editor.configObj.curConfig.snappingStep = 4
     editor.configObj.curConfig.gridColor = '#888'
     editor.configObj.curPrefs.bkgd_color = '#ff00ff'
@@ -154,6 +158,7 @@ describe('MainMenu', () => {
     expect(editor.configObj.preferences).toBe(true)
     expect(prefs.getAttribute('dialog')).toBe('open')
     expect(prefs.getAttribute('gridsnappingon')).toBe('true')
+    expect(prefs.getAttribute('pagebordersnappingon')).toBe('true')
     expect(prefs.getAttribute('gridsnappingstep')).toBe('4')
     expect(prefs.getAttribute('gridcolor')).toBe('#888')
     expect(prefs.getAttribute('canvasbg')).toBe('#ff00ff')

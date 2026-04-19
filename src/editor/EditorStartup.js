@@ -633,6 +633,10 @@ class EditorStartup {
         $editDialog.setAttribute('gridsnappingon', true)
       }
 
+      if (this.configObj.curConfig.pageBorderSnapping) {
+        $editDialog.setAttribute('pagebordersnappingon', true)
+      }
+
       if (this.configObj.curConfig.snappingStep) {
         $editDialog.setAttribute('gridsnappingstep', this.configObj.curConfig.snappingStep)
       }

@@ -229,6 +229,7 @@ export default {
     base_unit: 'Base Unit:',
     grid: 'Grid',
     snapping_onoff: 'Snapping on/off',
+    page_border_snapping_onoff: 'Snap to page border',
     snapping_stepsize: 'Snapping Step-Size:',
     grid_color: 'Grid color:',
     done: 'Done',

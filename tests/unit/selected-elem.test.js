@@ -173,4 +173,24 @@ describe('selected-elem', () => {
     }
     expect(svgCanvas.getSvgContent().querySelector('#use-no-href')).toBeTruthy()
   })
+
+  it('snaps keyboard-style moves to the page border when requested', () => {
+    const rect = svgCanvas.addSVGElementsFromJson({
+      element: 'rect',
+      attr: {
+        id: 'rect-move-snap',
+        x: 10,
+        y: 20,
+        width: 30,
+        height: 40
+      }
+    })
+
+    svgCanvas.setConfig({ pageBorderSnapping: true })
+    svgCanvas.selectOnly([rect], true)
+    svgCanvas.moveSelectedElements(-5, 0, true, true)
+
+    expect(rect.getAttribute('x')).toBe('0')
+    expect(rect.getAttribute('y')).toBe('20')
+  })
 })

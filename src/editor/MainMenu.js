@@ -82,6 +82,7 @@ class MainMenu {
       bgcolor,
       bgurl,
       gridsnappingon,
+      pagebordersnappingon,
       gridsnappingstep,
       gridcolor,
       showrulers,
@@ -98,6 +99,9 @@ class MainMenu {
 
     // set grid setting
     this.editor.configObj.curConfig.gridSnapping = gridsnappingon
+    if (pagebordersnappingon !== undefined) {
+      this.editor.configObj.curConfig.pageBorderSnapping = pagebordersnappingon
+    }
     this.editor.configObj.curConfig.snappingStep = gridsnappingstep
     this.editor.configObj.curConfig.gridColor = gridcolor
     this.editor.configObj.curConfig.showRulers = showrulers
@@ -198,6 +202,10 @@ class MainMenu {
     $editDialog.setAttribute(
       'gridsnappingon',
       this.editor.configObj.curConfig.gridSnapping
+    )
+    $editDialog.setAttribute(
+      'pagebordersnappingon',
+      this.editor.configObj.curConfig.pageBorderSnapping
     )
     $editDialog.setAttribute(
       'gridsnappingstep',

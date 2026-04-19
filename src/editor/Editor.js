@@ -1046,7 +1046,12 @@ class Editor extends EditorStartup {
         dx *= multi
         dy *= multi
       }
-      this.svgCanvas.moveSelectedElements(dx, dy)
+      this.svgCanvas.moveSelectedElements(
+        dx,
+        dy,
+        true,
+        this.configObj.curConfig.pageBorderSnapping
+      )
     }
   }
 

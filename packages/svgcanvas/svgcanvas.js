@@ -64,7 +64,8 @@ import {
   $click,
   getFeGaussianBlur,
   stringToHTML,
-  insertChildAtIndex
+  insertChildAtIndex,
+  snapToGrid
 } from './core/utilities.js'
 import {
   matrixMultiply,
@@ -80,6 +81,12 @@ import {
 } from './core/recalculate.js'
 import { getSelectorManager, Selector, init as selectInit } from './core/select.js'
 import { clearSvgContentElementInit, init as clearInit } from './core/clear.js'
+import {
+  getPageSnapTolerance,
+  snapBBoxToPageBorder,
+  snapPointToPageBorder,
+  snapResizeToPageBorder
+} from './core/page-border-snap.js'
 import {
   getClosest,
   getParents,
@@ -389,6 +396,130 @@ class SvgCanvas {
 
   getGridSnapping () {
     return this.curConfig.gridSnapping
+  }
+
+  getPageBorderSnapping () {
+    return this.curConfig.pageBorderSnapping
+  }
+
+  getPageBounds () {
+    return {
+      left: 0,
+      top: 0,
+      right: this.contentW,
+      bottom: this.contentH
+    }
+  }
+
+  getSnapTolerance () {
+    return getPageSnapTolerance(this.curConfig.snappingStep)
+  }
+
+  resolvePointSnap (x, y) {
+    if (this.curConfig.pageBorderSnapping) {
+      const pageSnap = snapPointToPageBorder(
+        { x, y },
+        this.getPageBounds(),
+        this.getSnapTolerance()
+      )
+      if (pageSnap.snapped) {
+        return {
+          ...pageSnap,
+          snapTarget: 'page-border'
+        }
+      }
+    }
+
+    if (this.curConfig.gridSnapping) {
+      return {
+        snapped: true,
+        x: this.snapToGrid(x),
+        y: this.snapToGrid(y),
+        snapTarget: 'grid'
+      }
+    }
+
+    return {
+      snapped: false,
+      x,
+      y,
+      snapTarget: null
+    }
+  }
+
+  resolveSelectionSnap (bbox, dx, dy) {
+    if (this.curConfig.pageBorderSnapping && bbox) {
+      const pageSnap = snapBBoxToPageBorder(
+        bbox,
+        { dx, dy },
+        this.getPageBounds(),
+        this.getSnapTolerance()
+      )
+      if (pageSnap.snapped) {
+        return {
+          ...pageSnap,
+          snapTarget: 'page-border'
+        }
+      }
+    }
+
+    if (this.curConfig.gridSnapping) {
+      return {
+        snapped: true,
+        dx: this.snapToGrid(dx),
+        dy: this.snapToGrid(dy),
+        snapTarget: 'grid'
+      }
+    }
+
+    return {
+      snapped: false,
+      dx,
+      dy,
+      snapTarget: null
+    }
+  }
+
+  resolveResizeSnap (resizeMode, bbox, dx, dy) {
+    if (this.curConfig.pageBorderSnapping && bbox) {
+      const pageSnap = snapResizeToPageBorder(
+        resizeMode,
+        bbox,
+        { dx, dy },
+        this.getPageBounds(),
+        this.getSnapTolerance()
+      )
+      if (pageSnap.snapped) {
+        return {
+          ...pageSnap,
+          snapTarget: 'page-border'
+        }
+      }
+    }
+
+    if (this.curConfig.gridSnapping) {
+      return {
+        snapped: true,
+        dx: this.snapToGrid(dx),
+        dy: this.snapToGrid(dy),
+        snapTarget: 'grid'
+      }
+    }
+
+    return {
+      snapped: false,
+      dx,
+      dy,
+      snapTarget: null
+    }
+  }
+
+  showPageSnapIndicator (snapResult) {
+    this.selectorManager?.showPageSnapIndicator(snapResult, this.getPageBounds())
+  }
+
+  hidePageSnapIndicator () {
+    this.selectorManager?.hidePageSnapIndicator()
   }
 
   getStartTransform () {
@@ -1338,6 +1469,7 @@ class SvgCanvas {
     this.encode64 = encode64
     this.decode64 = decode64
     this.mergeDeep = mergeDeep
+    this.snapToGrid = snapToGrid
   }
 
   /**

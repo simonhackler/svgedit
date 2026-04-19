@@ -199,7 +199,7 @@ const moveUpDownSelected = dir => {
  * @returns {BatchCommand|void} Batch command for the move
  */
 
-const moveSelectedElements = (dx, dy, undoable = true) => {
+const moveSelectedElements = (dx, dy, undoable = true, snapToPageBorder = false) => {
   const selectedElements = svgCanvas.getSelectedElements()
   const zoom = svgCanvas.getZoom()
   // if undoable is not sent, default to true
@@ -207,6 +207,14 @@ const moveSelectedElements = (dx, dy, undoable = true) => {
   if (!Array.isArray(dx)) {
     dx /= zoom
     dy /= zoom
+    if (snapToPageBorder) {
+      const bbox = getStrokedBBoxDefaultVisible(selectedElements)
+      const snap = svgCanvas.resolveSelectionSnap?.(bbox, dx, dy)
+      if (snap) {
+        dx = snap.dx
+        dy = snap.dy
+      }
+    }
   }
 
   const batchCmd = new BatchCommand('position')

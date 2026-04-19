@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { copyFile, mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
+import net from 'node:net'
 
 // Always instrument the build for coverage and ensure Playwright can launch.
 process.env.COVERAGE = 'true'
@@ -18,6 +19,33 @@ const run = (cmd, args, opts = {}) => new Promise((resolve, reject) => {
   child.on('exit', code => (code === 0 ? resolve() : reject(new Error(`${cmd} exited with code ${code}`))))
   child.on('error', reject)
 })
+
+const canListenOnPort = async (port) => new Promise((resolve) => {
+  const server = net.createServer()
+  server.unref()
+  server.on('error', () => resolve(false))
+  server.listen({ host: '127.0.0.1', port }, () => {
+    server.close(() => resolve(true))
+  })
+})
+
+const reservePlaywrightPort = async () => {
+  const requestedPort = Number.parseInt(process.env.PLAYWRIGHT_PORT || '8000', 10)
+  for (let port = requestedPort; port < requestedPort + 20; port++) {
+    if (await canListenOnPort(port)) {
+      sanitizedEnv.PLAYWRIGHT_HOST = sanitizedEnv.PLAYWRIGHT_HOST || '127.0.0.1'
+      sanitizedEnv.PLAYWRIGHT_PORT = String(port)
+      sanitizedEnv.PLAYWRIGHT_BASE_URL =
+        sanitizedEnv.PLAYWRIGHT_BASE_URL || `http://${sanitizedEnv.PLAYWRIGHT_HOST}:${port}`
+      if (port !== requestedPort) {
+        console.log(`Playwright port ${requestedPort} is busy, using ${port} instead.`)
+      }
+      return
+    }
+  }
+
+  throw new Error(`Could not find a free Playwright port starting from ${requestedPort}`)
+}
 
 const hasPlaywright = async () => {
   try {
@@ -106,6 +134,7 @@ const clearNycOutput = async () => {
 }
 
 if (await hasPlaywright()) {
+  await reservePlaywrightPort()
   await ensureBrowser()
   await ensureBuild()
   await clearNycOutput()

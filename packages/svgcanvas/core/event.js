@@ -6,7 +6,7 @@
  */
 import {
   assignAttributes, cleanupElement, getElement, getRotationAngle, snapToGrid, walkTree,
-  preventClickDefault, setHref, getBBox, findDefs
+  preventClickDefault, setHref, getBBox, findDefs, getStrokedBBoxDefaultVisible
 } from './utilities.js'
 import {
   applyMultilineText,
@@ -108,6 +108,65 @@ const updateTransformList = (svgRoot, element, dx, dy) => {
   }
 }
 
+const resolvePointSnap = (x, y) => {
+  const snap = svgCanvas.resolvePointSnap
+    ? svgCanvas.resolvePointSnap(x, y)
+    : {
+        snapped: false,
+        x,
+        y,
+        snapTarget: null
+      }
+
+  if (snap.snapTarget === 'page-border') {
+    svgCanvas.showPageSnapIndicator?.(snap)
+  }
+
+  return snap
+}
+
+const resolveSelectionSnap = (bbox, dx, dy) => {
+  const snap = svgCanvas.resolveSelectionSnap
+    ? svgCanvas.resolveSelectionSnap(bbox, dx, dy)
+    : {
+        snapped: false,
+        dx,
+        dy,
+        snapTarget: null
+      }
+
+  if (snap.snapTarget === 'page-border') {
+    svgCanvas.showPageSnapIndicator?.(snap)
+  }
+
+  return snap
+}
+
+const resolveResizeSnap = (resizeMode, bbox, dx, dy) => {
+  const snap = svgCanvas.resolveResizeSnap
+    ? svgCanvas.resolveResizeSnap(resizeMode, bbox, dx, dy)
+    : {
+        snapped: false,
+        dx,
+        dy,
+        snapTarget: null
+      }
+
+  if (snap.snapTarget === 'page-border') {
+    svgCanvas.showPageSnapIndicator?.(snap)
+  }
+
+  return snap
+}
+
+const snapCreationStartPoint = (x, y) => {
+  const snap = resolvePointSnap(x, y)
+  return {
+    x: snap.x,
+    y: snap.y
+  }
+}
+
 /**
  *
  * @param {MouseEvent} evt
@@ -123,6 +182,7 @@ const mouseMoveEvent = (evt) => {
   svgCanvas.textActions.init()
 
   evt.preventDefault()
+  svgCanvas.hidePageSnapIndicator?.()
 
   const selectedElements = svgCanvas.getSelectedElements()
   const zoom = svgCanvas.getZoom()
@@ -149,17 +209,13 @@ const mouseMoveEvent = (evt) => {
   let realY = mouseY / zoom
   let y = realY
 
-  if (svgCanvas.getCurConfig().gridSnapping) {
-    x = snapToGrid(x)
-    y = snapToGrid(y)
-  }
-
   let tlist
   switch (svgCanvas.getCurrentMode()) {
     case 'select': {
       // Insert dummy transform on first mouse move (drag start), not on click.
       // This avoids creating multiple transforms that trigger unwanted flattening.
       if (!svgCanvas.hasDragStartTransform && selectedElements.length > 0) {
+        svgCanvas.dragSelectionBBox = getStrokedBBoxDefaultVisible(selectedElements)
         // Store original transforms BEFORE adding the drag transform (for undo)
         svgCanvas.dragStartTransforms = new Map()
         for (const selectedElement of selectedElements) {
@@ -182,15 +238,17 @@ const mouseMoveEvent = (evt) => {
       if (selected) {
         dx = x - svgCanvas.getStartX()
         dy = y - svgCanvas.getStartY()
-        if (svgCanvas.getCurConfig().gridSnapping) {
-          dx = snapToGrid(dx)
-          dy = snapToGrid(dy)
-        }
+        const dragBBox =
+          svgCanvas.dragSelectionBBox || getStrokedBBoxDefaultVisible(selectedElements)
+        const moveSnap = resolveSelectionSnap(dragBBox, dx, dy)
+        dx = moveSnap.dx
+        dy = moveSnap.dy
 
         // Enable moving selection only if mouse has been moved at least 4 px in any direction
         // This prevents objects from being accidentally moved when (initially) selected
         const deltaThreshold = 4
-        const deltaThresholdReached = Math.abs(dx) > deltaThreshold || Math.abs(dy) > deltaThreshold
+        const deltaThresholdReached = moveSnap.snapTarget === 'page-border' ||
+          Math.abs(dx) > deltaThreshold || Math.abs(dy) > deltaThreshold
         moveSelectionThresholdReached = moveSelectionThresholdReached || deltaThresholdReached
 
         if (moveSelectionThresholdReached) {
@@ -261,10 +319,16 @@ const mouseMoveEvent = (evt) => {
       let { width, height } = box
       dx = (x - svgCanvas.getStartX())
       dy = (y - svgCanvas.getStartY())
+      const resizeSnap = resolveResizeSnap(
+        svgCanvas.getCurrentResizeMode(),
+        box,
+        dx,
+        dy
+      )
+      dx = resizeSnap.dx
+      dy = resizeSnap.dy
 
-      if (svgCanvas.getCurConfig().gridSnapping) {
-        dx = snapToGrid(dx)
-        dy = snapToGrid(dy)
+      if (resizeSnap.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
         height = snapToGrid(height)
         width = snapToGrid(width)
       }
@@ -308,7 +372,7 @@ const mouseMoveEvent = (evt) => {
       const scale = svgRoot.createSVGTransform()
       const translateBack = svgRoot.createSVGTransform()
 
-      if (svgCanvas.getCurConfig().gridSnapping) {
+      if (resizeSnap.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
         left = snapToGrid(left)
         tx = snapToGrid(tx)
         top = snapToGrid(top)
@@ -358,11 +422,12 @@ const mouseMoveEvent = (evt) => {
       if (selected && svgCanvas.textFrameResize) {
         const anchorX = svgCanvas.textFrameResize.anchorX
         const anchorY = svgCanvas.textFrameResize.anchorY
-        let frameX = Math.min(anchorX, x)
-        let frameY = Math.min(anchorY, y)
-        let frameWidth = Math.max(Math.abs(x - anchorX), 1)
-        let frameHeight = Math.max(Math.abs(y - anchorY), 1)
-        if (svgCanvas.getCurConfig().gridSnapping) {
+        const resizePoint = resolvePointSnap(x, y)
+        let frameX = Math.min(anchorX, resizePoint.x)
+        let frameY = Math.min(anchorY, resizePoint.y)
+        let frameWidth = Math.max(Math.abs(resizePoint.x - anchorX), 1)
+        let frameHeight = Math.max(Math.abs(resizePoint.y - anchorY), 1)
+        if (resizePoint.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
           frameX = snapToGrid(frameX)
           frameY = snapToGrid(frameY)
           frameWidth = snapToGrid(frameWidth)
@@ -381,11 +446,12 @@ const mouseMoveEvent = (evt) => {
         svgCanvas.selectorManager.requestSelector(selected).resize()
         break
       }
-      let w = Math.abs(x - svgCanvas.getStartX())
-      let h = Math.abs(y - svgCanvas.getStartY())
-      let newX = Math.min(svgCanvas.getStartX(), x)
-      let newY = Math.min(svgCanvas.getStartY(), y)
-      if (svgCanvas.getCurConfig().gridSnapping) {
+      const framePoint = resolvePointSnap(x, y)
+      let w = Math.abs(framePoint.x - svgCanvas.getStartX())
+      let h = Math.abs(framePoint.y - svgCanvas.getStartY())
+      let newX = Math.min(svgCanvas.getStartX(), framePoint.x)
+      let newY = Math.min(svgCanvas.getStartY(), framePoint.y)
+      if (framePoint.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
         w = snapToGrid(w)
         h = snapToGrid(h)
         newX = snapToGrid(newX)
@@ -400,11 +466,12 @@ const mouseMoveEvent = (evt) => {
       break
     }
     case 'text': {
+      const textPoint = resolvePointSnap(x, y)
       if (svgCanvas.useMultilineText) {
-        const frameX = Math.min(svgCanvas.getStartX(), x)
-        const frameY = Math.min(svgCanvas.getStartY(), y)
-        const frameWidth = Math.abs(x - svgCanvas.getStartX())
-        const frameHeight = Math.abs(y - svgCanvas.getStartY())
+        const frameX = Math.min(svgCanvas.getStartX(), textPoint.x)
+        const frameY = Math.min(svgCanvas.getStartY(), textPoint.y)
+        const frameWidth = Math.abs(textPoint.x - svgCanvas.getStartX())
+        const frameHeight = Math.abs(textPoint.y - svgCanvas.getStartY())
 
         if (svgCanvas.getRubberBox()) {
           assignAttributes(svgCanvas.getRubberBox(), {
@@ -417,20 +484,17 @@ const mouseMoveEvent = (evt) => {
         }
       } else {
         assignAttributes(shape, {
-          x,
-          y
+          x: textPoint.x,
+          y: textPoint.y
         }, 1000)
       }
       break
     }
     case 'line': {
-      if (svgCanvas.getCurConfig().gridSnapping) {
-        x = snapToGrid(x)
-        y = snapToGrid(y)
-      }
+      const linePoint = resolvePointSnap(x, y)
 
-      let x2 = x
-      let y2 = y
+      let x2 = linePoint.x
+      let y2 = linePoint.y
 
       if (evt.shiftKey) {
         xya = snapToAngle(svgCanvas.getStartX(), svgCanvas.getStartY(), x2, y2)
@@ -451,20 +515,20 @@ const mouseMoveEvent = (evt) => {
         (svgCanvas.getCurrentMode() === 'image' && !evt.shiftKey) ||
         (svgCanvas.getCurrentMode() !== 'image' && evt.shiftKey)
 
-      let
-        w = Math.abs(x - svgCanvas.getStartX())
-      let h = Math.abs(y - svgCanvas.getStartY())
+      const pointSnap = resolvePointSnap(x, y)
+      let w = Math.abs(pointSnap.x - svgCanvas.getStartX())
+      let h = Math.abs(pointSnap.y - svgCanvas.getStartY())
       let newX; let newY
       if (maintainAspectRatio) {
         w = h = Math.max(w, h)
-        newX = svgCanvas.getStartX() < x ? svgCanvas.getStartX() : svgCanvas.getStartX() - w
-        newY = svgCanvas.getStartY() < y ? svgCanvas.getStartY() : svgCanvas.getStartY() - h
+        newX = svgCanvas.getStartX() < pointSnap.x ? svgCanvas.getStartX() : svgCanvas.getStartX() - w
+        newY = svgCanvas.getStartY() < pointSnap.y ? svgCanvas.getStartY() : svgCanvas.getStartY() - h
       } else {
-        newX = Math.min(svgCanvas.getStartX(), x)
-        newY = Math.min(svgCanvas.getStartY(), y)
+        newX = Math.min(svgCanvas.getStartX(), pointSnap.x)
+        newY = Math.min(svgCanvas.getStartY(), pointSnap.y)
       }
 
-      if (svgCanvas.getCurConfig().gridSnapping) {
+      if (pointSnap.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
         w = snapToGrid(w)
         h = snapToGrid(h)
         newX = snapToGrid(newX)
@@ -483,8 +547,9 @@ const mouseMoveEvent = (evt) => {
     case 'circle': {
       cx = Number(shape.getAttribute('cx'))
       cy = Number(shape.getAttribute('cy'))
-      let rad = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy))
-      if (svgCanvas.getCurConfig().gridSnapping) {
+      const circlePoint = resolvePointSnap(x, y)
+      let rad = Math.sqrt((circlePoint.x - cx) * (circlePoint.x - cx) + (circlePoint.y - cy) * (circlePoint.y - cy))
+      if (circlePoint.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
         rad = snapToGrid(rad)
       }
       shape.setAttribute('r', rad)
@@ -493,10 +558,11 @@ const mouseMoveEvent = (evt) => {
     case 'ellipse': {
       cx = Number(shape.getAttribute('cx'))
       cy = Number(shape.getAttribute('cy'))
-      if (svgCanvas.getCurConfig().gridSnapping) {
-        x = snapToGrid(x)
+      const ellipsePoint = resolvePointSnap(x, y)
+      x = ellipsePoint.x
+      y = ellipsePoint.y
+      if (ellipsePoint.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
         cx = snapToGrid(cx)
-        y = snapToGrid(y)
         cy = snapToGrid(cy)
       }
       shape.setAttribute('rx', Math.abs(x - cx))
@@ -551,10 +617,13 @@ const mouseMoveEvent = (evt) => {
     }
     case 'path': // fall through
     case 'pathedit': {
+      const pathPoint = resolvePointSnap(x, y)
+      x = pathPoint.x
+      y = pathPoint.y
       x *= zoom
       y *= zoom
 
-      if (svgCanvas.getCurConfig().gridSnapping) {
+      if (pathPoint.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
         x = snapToGrid(x)
         y = snapToGrid(y)
         svgCanvas.setStartX(snapToGrid(svgCanvas.getStartX()))
@@ -643,6 +712,7 @@ const mouseMoveEvent = (evt) => {
 * @returns {void}
 */
 const mouseOutEvent = (evt) => {
+  svgCanvas.hidePageSnapIndicator?.()
   const { $id } = svgCanvas
   if (svgCanvas.getCurrentMode() !== 'select' && svgCanvas.getStarted()) {
     const event = new MouseEvent('mouseup', {
@@ -676,6 +746,7 @@ const mouseOutEvent = (evt) => {
 */
 const mouseUpEvent = (evt) => {
   evt.preventDefault()
+  svgCanvas.hidePageSnapIndicator?.()
   moveSelectionThresholdReached = false
   if (evt.button === 2) { return }
   if (!svgCanvas.getStarted()) { return }
@@ -805,6 +876,7 @@ const mouseUpEvent = (evt) => {
 
           // Clear the stored transforms AND reset the flag together
           svgCanvas.dragStartTransforms = null
+          svgCanvas.dragSelectionBBox = null
           svgCanvas.hasDragStartTransform = false
 
           const len = selectedElements.length
@@ -1087,6 +1159,7 @@ const mouseUpEvent = (evt) => {
     case 'rotate': {
       svgCanvas.hasDragStartTransform = false
       svgCanvas.dragStartTransforms = null
+      svgCanvas.dragSelectionBBox = null
       keep = true
       element = null
       svgCanvas.setCurrentMode('select')
@@ -1102,11 +1175,13 @@ const mouseUpEvent = (evt) => {
       // This could occur in an extension
       svgCanvas.hasDragStartTransform = false
       svgCanvas.dragStartTransforms = null
+      svgCanvas.dragSelectionBBox = null
       break
   }
   // Reset drag flag after any mouseUp
   svgCanvas.hasDragStartTransform = false
   svgCanvas.dragStartTransforms = null
+  svgCanvas.dragSelectionBBox = null
 
   /**
 * The main (left) mouse button is released (anywhere).
@@ -1265,6 +1340,7 @@ const mouseDownEvent = (evt) => {
   const { $id } = svgCanvas
 
   if (svgCanvas.spaceKey || evt.button === 1) { return }
+  svgCanvas.hidePageSnapIndicator?.()
 
   const rightClick = (evt.button === 2)
 
@@ -1309,13 +1385,6 @@ const mouseDownEvent = (evt) => {
   const realY = y
   svgCanvas.setStartY(y)
   svgCanvas.setRStartY(y)
-
-  if (svgCanvas.getCurConfig().gridSnapping) {
-    x = snapToGrid(x)
-    y = snapToGrid(y)
-    svgCanvas.setStartX(snapToGrid(svgCanvas.getStartX()))
-    svgCanvas.setStartY(snapToGrid(svgCanvas.getStartY()))
-  }
 
   // if it is a selector grip, then it must be a single element selected,
   // set the mouseTarget to that and update the mode to rotate/resize
@@ -1477,6 +1546,9 @@ const mouseDownEvent = (evt) => {
       svgCanvas.setFreehand('maxy', realY)
       break
     case 'image': {
+      ({ x, y } = snapCreationStartPoint(x, y))
+      svgCanvas.setStartX(x)
+      svgCanvas.setStartY(y)
       svgCanvas.setStarted(true)
       const newImage = svgCanvas.addSVGElementsFromJson({
         element: 'image',
@@ -1498,6 +1570,7 @@ const mouseDownEvent = (evt) => {
     // (for resizing purposes this could be important)
     // Fallthrough
     case 'rect':
+      ({ x, y } = snapCreationStartPoint(x, y))
       svgCanvas.setStarted(true)
       svgCanvas.setStartX(x)
       svgCanvas.setStartY(y)
@@ -1515,6 +1588,9 @@ const mouseDownEvent = (evt) => {
       })
       break
     case 'line': {
+      ({ x, y } = snapCreationStartPoint(x, y))
+      svgCanvas.setStartX(x)
+      svgCanvas.setStartY(y)
       svgCanvas.setStarted(true)
       const strokeW = Number(curShape.stroke_width) === 0 ? 1 : curShape.stroke_width
       svgCanvas.addSVGElementsFromJson({
@@ -1539,6 +1615,9 @@ const mouseDownEvent = (evt) => {
       })
       break
     } case 'circle':
+      ({ x, y } = snapCreationStartPoint(x, y))
+      svgCanvas.setStartX(x)
+      svgCanvas.setStartY(y)
       svgCanvas.setStarted(true)
       svgCanvas.addSVGElementsFromJson({
         element: 'circle',
@@ -1553,6 +1632,9 @@ const mouseDownEvent = (evt) => {
       })
       break
     case 'ellipse':
+      ({ x, y } = snapCreationStartPoint(x, y))
+      svgCanvas.setStartX(x)
+      svgCanvas.setStartY(y)
       svgCanvas.setStarted(true)
       svgCanvas.addSVGElementsFromJson({
         element: 'ellipse',
@@ -1568,14 +1650,17 @@ const mouseDownEvent = (evt) => {
       })
       break
     case 'text':
+      ({ x, y } = snapCreationStartPoint(x, y))
+      svgCanvas.setStartX(x)
+      svgCanvas.setStartY(y)
       svgCanvas.setStarted(true)
       if (svgCanvas.useMultilineText) {
         if (!svgCanvas.getRubberBox()) {
           svgCanvas.setRubberBox(svgCanvas.selectorManager.getRubberBandBox())
         }
         assignAttributes(svgCanvas.getRubberBox(), {
-          x: realX * zoom,
-          y: realY * zoom,
+          x: x * zoom,
+          y: y * zoom,
           width: 0,
           height: 0,
           display: 'inline'
@@ -1620,6 +1705,9 @@ const mouseDownEvent = (evt) => {
           break
         }
       }
+      ({ x, y } = snapCreationStartPoint(x, y))
+      svgCanvas.setStartX(x)
+      svgCanvas.setStartY(y)
       svgCanvas.setStarted(true)
       svgCanvas.addSVGElementsFromJson({
         element: 'rect',
@@ -1639,6 +1727,9 @@ const mouseDownEvent = (evt) => {
     case 'path':
     // Fall through
     case 'pathedit':
+      ({ x, y } = snapCreationStartPoint(x, y))
+      svgCanvas.setStartX(x)
+      svgCanvas.setStartY(y)
       svgCanvas.setStartX(svgCanvas.getStartX() * zoom)
       svgCanvas.setStartY(svgCanvas.getStartY() * zoom)
       svgCanvas.pathActions.mouseDown(evt, mouseTarget, svgCanvas.getStartX(), svgCanvas.getStartY())

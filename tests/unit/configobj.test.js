@@ -19,10 +19,11 @@ describe('ConfigObj', () => {
   it('merges defaults and respects allowInitialUserOverride', () => {
     const editor = stubEditor()
     const cfg = new ConfigObj(editor)
-    cfg.setConfig({ gridSnapping: true, userExtensions: ['custom'] })
+    cfg.setConfig({ gridSnapping: true, pageBorderSnapping: true, userExtensions: ['custom'] })
     cfg.setupCurConfig()
 
     expect(cfg.curConfig.gridSnapping).toBe(true)
+    expect(cfg.curConfig.pageBorderSnapping).toBe(true)
     expect(cfg.curConfig.extensions).toContain('ext-grid')
     expect(cfg.curConfig.extensions.includes('custom') || cfg.curConfig.userExtensions.includes('custom')).toBe(true)
 

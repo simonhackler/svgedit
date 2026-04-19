@@ -92,6 +92,7 @@ export default class ConfigObj {
       * @property {Float} [initOpacity=1] Initial opacity (multiplied by 100)
       * @property {module:SVGEditor.XYDimensions} [dimensions=[640, 480]] The default width/height of a new document. Use an array in `setConfig` (e.g., `[800, 600]`) and comma separated numbers in the URL.
       * @property {boolean} [gridSnapping=false] Enable snap to grid by default. Set in Editor Options.
+      * @property {boolean} [pageBorderSnapping=false] Enable snap to page border by default. Set in Editor Options.
       * @property {string} [gridColor="#000"] Accepts hex, e.g., '#000'. Set in Editor Options. Defaults to black.
       * @property {string} [baseUnit="px"] Set in Editor Options.
       * @property {Float} [snappingStep=10] Set the default grid snapping value. Set in Editor Options.
@@ -147,6 +148,7 @@ export default class ConfigObj {
       // EDITOR OPTIONS
       // Change the following to preferences (already in the Editor Options dialog)?
       gridSnapping: false,
+      pageBorderSnapping: false,
       gridColor: '#000',
       baseUnit: 'px',
       snappingStep: 10,

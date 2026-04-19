@@ -334,12 +334,21 @@ class PathActions {
       let y = mouseY / zoom
       let stretchy = getElement('path_stretch_line')
       this.#newPoint = [x, y]
-
-      if (svgCanvas.getGridSnapping()) {
-        x = snapToGrid(x)
-        y = snapToGrid(y)
+      const snap = svgCanvas.resolvePointSnap
+        ? svgCanvas.resolvePointSnap(x, y)
+        : {
+            x,
+            y,
+            snapTarget: null
+          }
+      x = snap.x
+      y = snap.y
+      if (snap.snapTarget !== 'page-border' && svgCanvas.getGridSnapping()) {
         mouseX = snapToGrid(mouseX)
         mouseY = snapToGrid(mouseY)
+      } else {
+        mouseX = x * zoom
+        mouseY = y * zoom
       }
 
       if (!stretchy) {
