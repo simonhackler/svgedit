@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<svg width="63" height="88" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" version="1.1" xml:space="preserve">
+ <defs id="defs1">
+  <rect height="107.91" id="rect1" width="166.17" x="45.29" y="205.43"/>
+ </defs>
+ <g class="layer">
+  <title>Layer 1</title>
+  <g id="layer1">
+   <image height="88" href="../../files/template_blank.png" id="background" preserveAspectRatio="none" width="63" x="0" y="0"/>
+   <image height="35.64" href="../../files/dice_6.png" id="dice_image" preserveAspectRatio="none" width="35.64" x="13.62" y="14.59"/>
+   <text data-svgedit-line-height="51.2" data-svgedit-multiline="true" data-svgedit-raw-text="Shoot" data-svgedit-shape-inside-ref="#rect1" data-svgedit-text-overflow="false" data-svgedit-wrap-height="107.91" data-svgedit-wrap-width="166.17" display="inline" font-family="sans-serif" font-size="42.67px" font-stretch="normal" font-style="normal" font-weight="normal" id="effect_zone" letter-spacing="0px" text-anchor="start" transform="matrix(0.26458333,0,0,0.26458333,-0.28532608,1.8546195)" x="45.29" xml:space="preserve" y="248.1">
+    <tspan x="45.29" y="248.1">Shoot</tspan>
+   </text>
+  </g>
+ </g>
+</svg>
