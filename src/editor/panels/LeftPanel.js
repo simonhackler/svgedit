@@ -46,6 +46,7 @@ class LeftPanel {
   clickSelect () {
     if (this.updateLeftPanel('tool_select')) {
       // this.editor.workarea.style.cursor = 'auto'
+      this.editor.svgCanvas.useMultilineText = false
       this.editor.svgCanvas.setMode('select')
       const selected = this.editor.svgCanvas.getSelectedElements()[0]
       if (selected) {

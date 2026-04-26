@@ -389,6 +389,26 @@ test.describe('Multiline text', () => {
     await expect(text).toHaveAttribute('data-svgedit-raw-text', 'Shoot')
   })
 
+  test('clicking away after multiline editing does not leave creation mode active', async ({ page }) => {
+    await page.locator('#tool_text_multiline').click()
+    await page.locator('#svgroot').click({ position: { x: 140, y: 120 } })
+
+    const editor = page.locator('#text_multiline')
+    await expect(editor).toBeVisible()
+    await fillMultilineText(page, ['Shoot'])
+    await commitMultilineEdit(page)
+
+    await expect(editor).toBeHidden()
+
+    const textCountBefore = await page.evaluate(() => document.querySelectorAll('#svgcontent text').length)
+    expect(textCountBefore).toBe(1)
+
+    await page.locator('#svgroot').click({ position: { x: 220, y: 220 } })
+
+    await expect(editor).toBeHidden()
+    await expect.poll(async () => page.evaluate(() => document.querySelectorAll('#svgcontent text').length)).toBe(1)
+  })
+
   test('multiline text preserves blank lines while editing in place', async ({ page }) => {
     await page.locator('#tool_text_multiline').click()
     await page.locator('#svgroot').dragTo(page.locator('#svgroot'), {

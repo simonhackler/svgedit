@@ -768,10 +768,7 @@ class TextActions {
    * @returns {void}
    */
   toSelectMode (selectElem) {
-    const nextMode = this.#isEditingMultiline() && svgCanvas.useMultilineText
-      ? 'textmultiline'
-      : 'select'
-    svgCanvas.setCurrentMode(nextMode)
+    svgCanvas.setCurrentMode('select')
     clearInterval(this.#blinker)
     this.#blinker = null
     if (this.#selblock) {
