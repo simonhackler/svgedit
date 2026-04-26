@@ -281,6 +281,16 @@ class EditorStartup {
       this.svgCanvas.setTextContent(evt.currentTarget.value)
     })
 
+    const getActiveEditingText = () => {
+      const editingText = this.svgCanvas.textActions.getCurrentTextElement?.()
+      if (editingText?.tagName === 'text') {
+        return editingText
+      }
+
+      const selected = this.svgCanvas.getSelectedElements()[0]
+      return selected?.tagName === 'text' ? selected : null
+    }
+
     $id('text_multiline').addEventListener('keydown', (evt) => {
       if (evt.key !== 'Enter' || evt.altKey || evt.ctrlKey || evt.metaKey) {
         return
@@ -293,22 +303,22 @@ class EditorStartup {
       const end = input.selectionEnd ?? start
       const nextValue = `${input.value.slice(0, start)}\n${input.value.slice(end)}`
       const nextIndex = start + 1
-      const selected = this.svgCanvas.getSelectedElements()[0]
+      const activeText = getActiveEditingText()
 
       input.value = nextValue
       input.setSelectionRange(nextIndex, nextIndex)
 
-      if (selected?.tagName === 'text') {
-        selected.setAttribute('data-svgedit-multiline', 'true')
+      if (activeText) {
+        activeText.setAttribute('data-svgedit-multiline', 'true')
         this.svgCanvas.setTextContent(nextValue)
       }
       this.svgCanvas.textActions.setCursor(nextIndex)
     })
 
     addListenerMulti($id('text_multiline'), 'keyup input click mouseup select', (evt) => {
-      const selected = this.svgCanvas.getSelectedElements()[0]
-      if ((evt.type === 'keyup' || evt.type === 'input') && selected?.tagName === 'text') {
-        selected.setAttribute('data-svgedit-multiline', 'true')
+      const activeText = getActiveEditingText()
+      if ((evt.type === 'keyup' || evt.type === 'input') && activeText) {
+        activeText.setAttribute('data-svgedit-multiline', 'true')
         this.svgCanvas.setTextContent(evt.currentTarget.value)
       }
       this.svgCanvas.textActions.setCursor()

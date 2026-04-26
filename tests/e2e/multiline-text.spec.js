@@ -103,19 +103,23 @@ async function getTextCenter (page, textId) {
       return null
     }
     const bbox = textNode.getBBox()
+    const ctm = textNode.getScreenCTM()
+    if (!ctm) {
+      return null
+    }
+    const centerX = bbox.x + bbox.width / 2
+    const centerY = bbox.y + bbox.height / 2
     return {
-      x: bbox.x + bbox.width / 2,
-      y: bbox.y + bbox.height / 2
+      x: ctm.a * centerX + ctm.c * centerY + ctm.e,
+      y: ctm.b * centerX + ctm.d * centerY + ctm.f
     }
   }, textId)
 }
 
 async function clickTextOnCanvas (page, textId, clickCount = 1) {
   const center = await getTextCenter(page, textId)
-  const svgBox = await page.locator('#svgroot').boundingBox()
   expect(center).not.toBeNull()
-  expect(svgBox).not.toBeNull()
-  await page.mouse.click(svgBox.x + center.x, svgBox.y + center.y, { clickCount })
+  await page.mouse.click(center.x, center.y, { clickCount })
 }
 
 async function getMultilineCursorGeometry (page, textSelector) {
@@ -126,7 +130,8 @@ async function getMultilineCursorGeometry (page, textSelector) {
       return null
     }
 
-    const fontSize = Number(textNode.getAttribute('font-size')) || 16
+    const computedStyle = window.getComputedStyle(textNode)
+    const fontSize = Number.parseFloat(textNode.getAttribute('font-size') || computedStyle.fontSize) || 16
     const frameX = Number(textNode.getAttribute('x')) || 0
     const frameY = (Number(textNode.getAttribute('y')) || fontSize) - fontSize
     const frameWidth = Number(textNode.getAttribute('data-svgedit-wrap-width')) || 0
@@ -218,6 +223,170 @@ test.describe('Multiline text', () => {
     await expect(text.locator('tspan').nth(0)).toHaveText('first line')
     await expect(text.locator('tspan').nth(1)).toHaveText('second line')
     await expect(text).toHaveAttribute('data-svgedit-raw-text', 'first line\nsecond line')
+  })
+
+  test('editing an existing plain text element converts it to multiline text', async ({ page }) => {
+    await setSvgSource(page, `<svg width="640" height="480" xmlns="http://www.w3.org/2000/svg">
+      <g class="layer">
+        <title>Layer 1</title>
+        <text id="svg_1" x="120" y="120">A</text>
+      </g>
+    </svg>`)
+
+    const text = page.locator('#svg_1')
+    await text.dblclick()
+
+    await expect(page.locator('#text_multiline')).toBeVisible()
+    await fillMultilineText(page, ['first line', 'second line'])
+
+    await expect(text).toHaveAttribute('data-svgedit-multiline', 'true')
+    await expect(text).toHaveAttribute('data-svgedit-wrap-width', /^(?:2[4-9]\d|\d{3,})$/)
+    await expect(text).toHaveAttribute('data-svgedit-wrap-height', /^(?:12\d|\d{3,})$/)
+    await expect(text.locator('tspan')).toHaveCount(2)
+    await expect(text.locator('tspan').nth(0)).toHaveText('first line')
+    await expect(text.locator('tspan').nth(1)).toHaveText('second line')
+    await expect(text).toHaveAttribute('data-svgedit-raw-text', 'first line\nsecond line')
+  })
+
+  test('editing imported transformed text with a shape-inside frame stays editable', async ({ page }) => {
+    await setSvgSource(page, `<svg width="63" height="88" xmlns="http://www.w3.org/2000/svg" version="1.1" xml:space="preserve">
+      <defs>
+        <rect id="rect1" x="45.29" y="205.43" width="154.21" height="59.31"/>
+      </defs>
+      <g class="layer">
+        <title>Layer 1</title>
+        <text
+          id="effect_zone"
+          xml:space="preserve"
+          transform="matrix(0.26458333,0,0,0.26458333,-0.28532608,1.8546195)"
+          style="font-size:42.6667px;line-height:1.25;font-family:sans-serif;text-align:center;letter-spacing:0px;white-space:pre;shape-inside:url(#rect1);display:inline;"
+        ><tspan x="63.987749" y="244.25692">Shoot</tspan></text>
+      </g>
+    </svg>`)
+
+    const text = page.locator('#effect_zone')
+    await text.dblclick()
+
+    const editor = page.locator('#text_multiline')
+    await expect(editor).toBeVisible()
+    const box = await editor.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box.width).toBeGreaterThan(20)
+    expect(box.height).toBeGreaterThan(10)
+
+    await fillMultilineText(page, ['Reload'])
+
+    await expect(text).toHaveAttribute('data-svgedit-multiline', 'true')
+    await expect(text).toHaveAttribute('data-svgedit-shape-inside-ref', '#rect1')
+    await expect(text).toHaveAttribute('data-svgedit-raw-text', 'Reload')
+    await expect(text.locator('tspan')).toHaveCount(1)
+    await expect(text.locator('tspan').first()).toHaveText('Reload')
+  })
+
+  test('editing imported transformed text accepts direct keyboard typing', async ({ page }) => {
+    await setSvgSource(page, `<svg width="63" height="88" xmlns="http://www.w3.org/2000/svg" version="1.1" xml:space="preserve">
+      <defs>
+        <rect id="rect1" x="45.29" y="205.43" width="154.21" height="59.31"/>
+      </defs>
+      <g class="layer">
+        <title>Layer 1</title>
+        <text
+          id="effect_zone"
+          xml:space="preserve"
+          transform="matrix(0.26458333,0,0,0.26458333,-0.28532608,1.8546195)"
+          style="font-size:42.6667px;line-height:1.25;font-family:sans-serif;text-align:center;letter-spacing:0px;white-space:pre;shape-inside:url(#rect1);display:inline;"
+        ><tspan x="63.987749" y="244.25692">Shoot</tspan></text>
+      </g>
+    </svg>`)
+
+    const text = page.locator('#effect_zone')
+    await text.dblclick()
+
+    const editor = page.locator('#text_multiline')
+    await expect(editor).toBeVisible()
+    await expect(editor).toBeFocused()
+    const editorColors = await page.evaluate(() => {
+      const input = document.getElementById('text_multiline')
+      const style = input ? window.getComputedStyle(input) : null
+      return {
+        color: style?.color || '',
+        webkitTextFillColor: style?.webkitTextFillColor || '',
+        inlineColor: input?.style.color || '',
+        inlineWebkitTextFillColor: input?.style.webkitTextFillColor || ''
+      }
+    })
+    expect(editorColors.inlineColor).toBe('transparent')
+    expect(editorColors.inlineWebkitTextFillColor).toBe('transparent')
+    await page.keyboard.type('ff')
+
+    await expect(editor).toHaveValue('Shootff')
+    await expect(text).toHaveAttribute('data-svgedit-raw-text', 'Shootff')
+    await expect(text.locator('tspan').first()).toHaveText('Shootff')
+    await commitMultilineEdit(page)
+    await expect(text).toHaveAttribute('data-svgedit-raw-text', 'Shootff')
+    await expect(text.locator('tspan').first()).toHaveText('Shootff')
+  })
+
+  test('resizing imported transformed text preserves a sane multiline frame', async ({ page }) => {
+    await setSvgSource(page, `<svg width="63" height="88" xmlns="http://www.w3.org/2000/svg" version="1.1" xml:space="preserve">
+      <defs>
+        <rect id="rect1" x="45.29" y="205.43" width="154.21" height="59.31"/>
+      </defs>
+      <g class="layer">
+        <title>Layer 1</title>
+        <text
+          id="effect_zone"
+          xml:space="preserve"
+          transform="matrix(0.26458333,0,0,0.26458333,-0.28532608,1.8546195)"
+          style="font-size:42.6667px;line-height:1.25;font-family:sans-serif;text-align:center;letter-spacing:0px;white-space:pre;shape-inside:url(#rect1);display:inline;"
+        ><tspan x="63.987749" y="244.25692">Shoot</tspan></text>
+      </g>
+    </svg>`)
+
+    const text = page.locator('#effect_zone')
+    await text.dblclick()
+    await expect(page.locator('#text_multiline')).toBeVisible()
+    await commitMultilineEdit(page)
+
+    const before = await getMultilineSnapshot(page, 'effect_zone')
+    expect(before).not.toBeNull()
+    await page.locator('#tool_text_multiline').click()
+
+    const resizeGrip = await getVisibleTextResizeGrip(page)
+    const gripBox = await resizeGrip.boundingBox()
+    expect(gripBox).not.toBeNull()
+
+    await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(gripBox.x + gripBox.width / 2 + 40, gripBox.y + gripBox.height / 2 + 25)
+    await page.mouse.up()
+
+    const after = await getMultilineSnapshot(page, 'effect_zone')
+    expect(after).not.toBeNull()
+    expect(Number(after.wrapWidth)).toBeGreaterThan(Number(before.wrapWidth))
+    expect(Number(after.wrapHeight)).toBeGreaterThan(Number(before.wrapHeight))
+    expect(after.lines).toHaveLength(1)
+    expect(after.lines[0].text).toBe('Shoot')
+  })
+
+  test('the normal text tool opens an editable multiline frame for new text', async ({ page }) => {
+    await page.locator('#tool_text').click()
+    await page.locator('#svgroot').click({ position: { x: 140, y: 120 } })
+
+    const editor = page.locator('#text_multiline')
+    await expect(editor).toBeVisible()
+
+    const box = await editor.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box.width).toBeGreaterThan(100)
+    expect(box.height).toBeGreaterThan(40)
+
+    await fillMultilineText(page, ['Shoot'])
+
+    const text = await getSelectedMultilineText(page)
+    await expect(text).toHaveAttribute('data-svgedit-wrap-width', /^(?:2[4-9]\d|\d{3,})$/)
+    await expect(text).toHaveAttribute('data-svgedit-wrap-height', /^(?:12\d|\d{3,})$/)
+    await expect(text).toHaveAttribute('data-svgedit-raw-text', 'Shoot')
   })
 
   test('multiline text preserves blank lines while editing in place', async ({ page }) => {

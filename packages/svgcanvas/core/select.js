@@ -9,6 +9,7 @@
 import { isWebkit } from '../common/browser.js'
 import { getRotationAngle, getBBox, getStrokedBBox } from './utilities.js'
 import { transformListToTransform, transformBox, transformPoint, matrixMultiply, getTransformList } from './math.js'
+import { getTextFontSize } from './multiline-text.js'
 import { NS } from './namespaces'
 import { warn } from '../common/logger.js'
 
@@ -147,7 +148,6 @@ export class Selector {
     this.hasGrips = show
     const showTextResizeGrip = show &&
       elem?.tagName === 'text' &&
-      svgCanvas.getCurrentMode() === 'textmultiline' &&
       Number.isFinite(Number.parseFloat(elem.getAttribute('data-svgedit-wrap-width'))) &&
       Number.isFinite(Number.parseFloat(elem.getAttribute('data-svgedit-wrap-height')))
 
@@ -298,7 +298,7 @@ export class Selector {
       selectedBox.setAttribute('d', dstr)
       this.selectorGroup.setAttribute('transform', xform)
       if (hasFrame) {
-        const fontSize = Number.parseFloat(selected.getAttribute('font-size')) || 16
+        const fontSize = getTextFontSize(selected)
         const frameX = Number.parseFloat(selected.getAttribute('x')) || 0
         const frameY = (Number.parseFloat(selected.getAttribute('y')) || 0) - fontSize
         const frameBox = transformBox(frameX * zoom, frameY * zoom, wrapWidth * zoom, wrapHeight * zoom, m)

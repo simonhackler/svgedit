@@ -11,6 +11,7 @@ import {
 import {
   applyMultilineText,
   enableMultilineTextElement,
+  getTextFontSize,
   getRawMultilineText,
   syncMultilineFrameRect
 } from './multiline-text.js'
@@ -18,7 +19,7 @@ import {
   convertAttrs
 } from './units.js'
 import {
-  transformPoint, hasMatrixTransform, getMatrix, snapToAngle, getTransformList, transformListToTransform
+  transformPoint, hasMatrixTransform, getMatrix, matrixMultiply, snapToAngle, getTransformList, transformListToTransform
 } from './math.js'
 import * as draw from './draw.js'
 import * as pathModule from './path.js'
@@ -165,6 +166,28 @@ const snapCreationStartPoint = (x, y) => {
     x: snap.x,
     y: snap.y
   }
+}
+
+const getAccumulatedMatrix = (elem) => {
+  const svgContent = svgCanvas.getSvgContent()
+  const matrices = []
+  let current = elem
+
+  while (current && current !== svgContent && current.nodeType === 1) {
+    const tlist = getTransformList(current)
+    if (tlist && tlist.numberOfItems > 0) {
+      matrices.unshift(transformListToTransform(tlist).matrix)
+    }
+    current = current.parentNode
+  }
+
+  if (matrices.length === 0) {
+    return null
+  }
+  if (matrices.length === 1) {
+    return matrices[0]
+  }
+  return matrixMultiply(...matrices)
 }
 
 /**
@@ -426,18 +449,27 @@ const mouseMoveEvent = (evt) => {
       if (selected && svgCanvas.textFrameResize) {
         const anchorX = svgCanvas.textFrameResize.anchorX
         const anchorY = svgCanvas.textFrameResize.anchorY
-        const resizePoint = resolvePointSnap(x, y)
+        const snappedResizePoint = resolvePointSnap(x, y)
+        let resizePoint = {
+          x: snappedResizePoint.x,
+          y: snappedResizePoint.y
+        }
+        const resizeMatrix = getAccumulatedMatrix(selected)
+        if (resizeMatrix) {
+          resizePoint = transformPoint(resizePoint.x, resizePoint.y, resizeMatrix.inverse())
+        }
+
         let frameX = Math.min(anchorX, resizePoint.x)
         let frameY = Math.min(anchorY, resizePoint.y)
         let frameWidth = Math.max(Math.abs(resizePoint.x - anchorX), 1)
         let frameHeight = Math.max(Math.abs(resizePoint.y - anchorY), 1)
-        if (resizePoint.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
+        if (snappedResizePoint.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
           frameX = snapToGrid(frameX)
           frameY = snapToGrid(frameY)
           frameWidth = snapToGrid(frameWidth)
           frameHeight = snapToGrid(frameHeight)
         }
-        const fontSize = Number(selected.getAttribute('font-size')) || 16
+        const fontSize = getTextFontSize(selected)
 
         assignAttributes(selected, {
           x: frameX,
@@ -1092,6 +1124,9 @@ const mouseUpEvent = (evt) => {
           svgCanvas.addCommandToHistory(batchCmd)
           svgCanvas.call('changed', [selected])
         }
+        if (!svgCanvas.useMultilineText) {
+          svgCanvas.setCurrentMode('select')
+        }
         svgCanvas.selectorManager.requestSelector(selected).showGrips(true)
         return
       }
@@ -1305,6 +1340,12 @@ const dblClickEvent = (evt) => {
   const parent = evtTarget.parentNode
 
   let mouseTarget = svgCanvas.getMouseTarget(evt)
+  if (
+    mouseTarget === svgCanvas.selectorManager.selectorParentGroup &&
+    selectedElements[0]?.tagName === 'text'
+  ) {
+    mouseTarget = selectedElements[0]
+  }
   const { tagName } = mouseTarget
 
   if (tagName === 'text' && svgCanvas.getCurrentMode() !== 'textedit') {
@@ -1423,6 +1464,7 @@ const mouseDownEvent = (evt) => {
       svgCanvas.setCurrentResizeMode(dataStorage.get(grip, 'dir'))
       mouseTarget = selected
     } else if (griptype === 'textresize') {
+      svgCanvas.setCurrentMode('textmultiline')
       // Keep selectorParentGroup as the mouse target so multiline mode can
       // handle its dedicated frame resize grip separately.
     } else {
@@ -1709,10 +1751,10 @@ const mouseDownEvent = (evt) => {
         const grip = evt.target
         if (dataStorage.get(grip, 'type') === 'textresize') {
           const selected = selectedElements[0]
-          const fontSize = Number(selected.getAttribute('font-size')) || 16
+          const fontSize = getTextFontSize(selected)
           svgCanvas.textFrameResize = {
-            anchorX: Number(selected.getAttribute('x')) || 0,
-            anchorY: (Number(selected.getAttribute('y')) || fontSize) - fontSize,
+            anchorX: Number.parseFloat(selected.getAttribute('x')) || 0,
+            anchorY: (Number.parseFloat(selected.getAttribute('y')) || fontSize) - fontSize,
             oldValues: {
               x: selected.getAttribute('x') || '',
               y: selected.getAttribute('y') || '',

@@ -5,6 +5,7 @@ import { init as utilitiesInit } from '../../packages/svgcanvas/core/utilities.j
 import { NS } from '../../packages/svgcanvas/core/namespaces.js'
 
 describe('TextActions', () => {
+  const originalCanvasGetContext = HTMLCanvasElement.prototype.getContext
   let svgCanvas
   let svgRoot
   let textElement
@@ -13,6 +14,13 @@ describe('TextActions', () => {
   let mockSelectorManager
 
   beforeEach(() => {
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+      font: '',
+      measureText: (text) => ({
+        width: String(text ?? '').length * 10
+      })
+    }))
+
     // Create mock SVG elements
     svgRoot = document.createElementNS(NS.SVG, 'svg')
     svgRoot.setAttribute('width', '640')
@@ -89,6 +97,7 @@ describe('TextActions', () => {
   })
 
   afterEach(() => {
+    HTMLCanvasElement.prototype.getContext = originalCanvasGetContext
     document.body.textContent = ''
   })
 
@@ -137,16 +146,25 @@ describe('TextActions', () => {
   })
 
   describe('select', () => {
-    it('should set current text element and enter edit mode', () => {
+    it('should convert selected text to multiline edit mode', () => {
       textActionsMethod.select(textElement, 100, 100)
+
+      expect(textElement.getAttribute('data-svgedit-multiline')).toBe('true')
+      expect(textElement.getAttribute('data-svgedit-wrap-width')).toBe('240')
+      expect(textElement.getAttribute('data-svgedit-wrap-height')).toBe('120')
       expect(svgCanvas.setCurrentMode).toHaveBeenCalledWith('textedit')
     })
   })
 
   describe('start', () => {
-    it('should start editing a text element', () => {
+    it('should start editing a text element with multiline enabled', () => {
       textActionsMethod.start(textElement)
+
+      expect(textElement.getAttribute('data-svgedit-multiline')).toBe('true')
+      expect(textElement.getAttribute('data-svgedit-wrap-width')).toBe('240')
+      expect(textElement.getAttribute('data-svgedit-wrap-height')).toBe('120')
       expect(svgCanvas.setCurrentMode).toHaveBeenCalledWith('textedit')
+      expect(multilineInputElement.style.display).toBe('block')
     })
 
     it('should start editing a multiline text element with the overlay input', () => {
@@ -162,13 +180,12 @@ describe('TextActions', () => {
   })
 
   describe('init', () => {
-    it('should initialize text editing for current element', () => {
+    it('should initialize edited text with the multiline overlay input', () => {
       textActionsMethod.start(textElement)
       textActionsMethod.init()
 
-      // Verify text measurement methods were called
-      expect(textElement.getStartPositionOfChar).toHaveBeenCalled()
-      expect(textElement.getEndPositionOfChar).toHaveBeenCalled()
+      expect(multilineInputElement.value).toBe('Test')
+      expect(multilineInputElement.style.display).toBe('block')
     })
 
     it('should handle empty text content', () => {
@@ -554,8 +571,8 @@ describe('TextActions', () => {
     })
 
     it('should handle toSelectMode with valid element', () => {
-      const elem = document.createElementNS(NS.SVG, 'text')
-      textActionsMethod.toSelectMode(elem)
+      textActionsMethod.start(textElement)
+      textActionsMethod.toSelectMode(true)
       expect(true).toBe(true)
     })
   })

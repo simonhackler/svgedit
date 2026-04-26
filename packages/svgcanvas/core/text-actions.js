@@ -13,7 +13,14 @@ import {
   getBBox as utilsGetBBox
 } from './utilities.js'
 import { supportsGoodTextCharPos } from '../common/browser.js'
-import { applyMultilineText, getRawMultilineText, isMultilineTextElement } from './multiline-text.js'
+import {
+  applyMultilineText,
+  enableMultilineTextElement,
+  getTextFontSize,
+  getTextLineHeight,
+  getRawMultilineText,
+  isMultilineTextElement
+} from './multiline-text.js'
 
 let svgCanvas = null
 
@@ -48,6 +55,21 @@ class TextActions {
   #allowDbl = false
 
   #isEditingMultiline = () => isMultilineTextElement(this.#curtext)
+
+  #promoteCurrentTextToMultiline = () => {
+    if (this.#curtext?.tagName === 'text') {
+      enableMultilineTextElement(this.#curtext)
+    }
+  }
+
+  #getNumericAttr = (name, fallback) => {
+    const parsed = Number.parseFloat(this.#curtext?.getAttribute(name) ?? '')
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+
+  #getCurrentFontSize = () => getTextFontSize(this.#curtext)
+
+  #getCurrentLineHeight = () => getTextLineHeight(this.#curtext)
 
   #setActiveInput = () => {
     this.#textinput = this.#isEditingMultiline()
@@ -89,6 +111,8 @@ class TextActions {
       top: '-10000px',
       width: '1px',
       height: '1px',
+      color: '',
+      WebkitTextFillColor: '',
       caretColor: ''
     })
   }
@@ -202,10 +226,10 @@ class TextActions {
     }
 
     const lineText = mappings[targetLine]?.lineText ?? ''
-    const frameX = Number(this.#curtext.getAttribute('x')) || 0
-    const fontSize = Number(this.#curtext.getAttribute('font-size')) || 16
-    const frameY = (Number(this.#curtext.getAttribute('y')) || fontSize) - fontSize
-    const lineHeight = Number(this.#curtext.getAttribute('data-svgedit-line-height')) || fontSize * 1.2
+    const frameX = this.#getNumericAttr('x', 0)
+    const fontSize = this.#getCurrentFontSize()
+    const frameY = this.#getNumericAttr('y', fontSize) - fontSize
+    const lineHeight = this.#getCurrentLineHeight()
     const domIndexForCursor = (mappings[targetLine]?.domStart ?? 0) + column
 
     let caretX = frameX
@@ -242,18 +266,21 @@ class TextActions {
       return
     }
 
-    const fontSize = Number(this.#curtext.getAttribute('font-size')) || 16
-    const lineHeight = Number(this.#curtext.getAttribute('data-svgedit-line-height')) || fontSize * 1.2
-    const frameX = Number(this.#curtext.getAttribute('x')) || 0
-    const frameY = (Number(this.#curtext.getAttribute('y')) || fontSize) - fontSize
-    const frameWidth = Math.max(Number(this.#curtext.getAttribute('data-svgedit-wrap-width')) || 1, 1)
-    const frameHeight = Math.max(Number(this.#curtext.getAttribute('data-svgedit-wrap-height')) || 1, 1)
+    const fontSize = this.#getCurrentFontSize()
+    const lineHeight = this.#getCurrentLineHeight()
+    const frameX = this.#getNumericAttr('x', 0)
+    const frameY = this.#getNumericAttr('y', fontSize) - fontSize
+    const frameWidth = Math.max(this.#getNumericAttr('data-svgedit-wrap-width', 1), 1)
+    const frameHeight = Math.max(this.#getNumericAttr('data-svgedit-wrap-height', 1), 1)
 
     const topLeft = this.#ptToViewport(frameX, frameY)
     const topRight = this.#ptToViewport(frameX + frameWidth, frameY)
     const bottomLeft = this.#ptToViewport(frameX, frameY + frameHeight)
-    const zoom = svgCanvas.getZoom()
+    const fontBottom = this.#ptToViewport(frameX, frameY + fontSize)
+    const lineBottom = this.#ptToViewport(frameX, frameY + lineHeight)
     const computedStyle = window.getComputedStyle(this.#curtext)
+    const fontSizePx = Math.max(Math.hypot(fontBottom.x - topLeft.x, fontBottom.y - topLeft.y), 1)
+    const lineHeightPx = Math.max(Math.hypot(lineBottom.x - topLeft.x, lineBottom.y - topLeft.y), 1)
 
     Object.assign(this.#textinput.style, {
       position: 'fixed',
@@ -266,16 +293,17 @@ class TextActions {
       width: `${Math.max(topRight.x - topLeft.x, 1)}px`,
       height: `${Math.max(bottomLeft.y - topLeft.y, 1)}px`,
       fontFamily: computedStyle.fontFamily || this.#curtext.getAttribute('font-family') || 'sans-serif',
-      fontSize: `${fontSize * zoom}px`,
+      fontSize: `${fontSizePx}px`,
       fontStyle: computedStyle.fontStyle || this.#curtext.getAttribute('font-style') || 'normal',
       fontWeight: computedStyle.fontWeight || this.#curtext.getAttribute('font-weight') || 'normal',
-      lineHeight: `${lineHeight * zoom}px`,
+      lineHeight: `${lineHeightPx}px`,
       letterSpacing: computedStyle.letterSpacing,
       wordSpacing: computedStyle.wordSpacing,
       direction: computedStyle.direction || 'ltr',
       textAlign: this.#getMultilineTextAlignment(computedStyle),
       textAlignLast: this.#getMultilineTextAlignment(computedStyle),
       color: 'transparent',
+      WebkitTextFillColor: 'transparent',
       caretColor: 'transparent'
     })
   }
@@ -595,6 +623,7 @@ class TextActions {
    */
   select (target, x, y) {
     this.#curtext = target
+    this.#promoteCurrentTextToMultiline()
     svgCanvas.selectOnly?.([target])
     svgCanvas.textActions.toEditMode(x, y)
   }
@@ -605,6 +634,7 @@ class TextActions {
    */
   start (elem) {
     this.#curtext = elem
+    this.#promoteCurrentTextToMultiline()
     svgCanvas.textActions.toEditMode()
   }
 
