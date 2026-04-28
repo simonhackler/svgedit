@@ -14,6 +14,7 @@ const DEFAULT_PROMOTED_FRAME_HEIGHT = 120
 const SHAPE_INSIDE_REF_REGEX = /shape-inside\s*:\s*url\((['"]?)(#[^)'" ;]+)\1\)/i
 const FONT_SIZE_STYLE_REGEX = /font-size\s*:\s*([^;]+)/i
 const LINE_HEIGHT_STYLE_REGEX = /line-height\s*:\s*([^;]+)/i
+const TEXT_ALIGN_STYLE_REGEX = /text-align\s*:\s*([^;]+)/i
 
 const toNumber = (value, fallback) => {
   const parsed = Number.parseFloat(value)
@@ -110,6 +111,20 @@ const buildFontShorthand = (textElem) => {
 
 const getLineHeight = (textElem) => {
   return getTextLineHeight(textElem)
+}
+
+const getTextAlign = (textElem) => {
+  const inlineAlign = getStyleValue(textElem, TEXT_ALIGN_STYLE_REGEX)
+  if (inlineAlign) {
+    return inlineAlign
+  }
+
+  const attrAlign = textElem.getAttribute('text-align')
+  if (attrAlign) {
+    return attrAlign
+  }
+
+  return window.getComputedStyle(textElem).textAlign || 'left'
 }
 
 const getWrapWidth = (textElem) => {
@@ -312,11 +327,18 @@ export const applyMultilineText = (textElem, rawText) => {
 
   clearTextChildren(textElem)
   const x = textElem.getAttribute('x') || '0'
+  const baseX = toNumber(x, 0)
   const y = toNumber(textElem.getAttribute('y'), getLineHeight(textElem))
+  const textAlign = getTextAlign(textElem)
 
   renderedLines.forEach((line, index) => {
     const tspan = document.createElementNS(NS.SVG, 'tspan')
-    tspan.setAttribute('x', x)
+    const lineOffset = textAlign === 'center' || textAlign === 'middle'
+      ? Math.max(0, (wrapWidth - line.width) / 2)
+      : textAlign === 'right' || textAlign === 'end'
+        ? Math.max(0, wrapWidth - line.width)
+        : 0
+    tspan.setAttribute('x', String(baseX + lineOffset))
     tspan.setAttribute('y', String(y + index * lineHeight))
     if (line.text === '') {
       tspan.setAttribute(EMPTY_LINE_ATTR, 'true')
