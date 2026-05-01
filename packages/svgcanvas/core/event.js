@@ -919,6 +919,7 @@ const mouseUpEvent = (evt) => {
 
             if (!batchCmd.isEmpty()) {
               svgCanvas.addCommandToHistory(batchCmd)
+              svgCanvas.call('changed', selectedElements)
             }
           } finally {
             svgCanvas.suspendGridSnapping = previousSuppressGridSnapping
