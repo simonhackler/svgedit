@@ -23,6 +23,21 @@ import {
 } from './multiline-text.js'
 
 let svgCanvas = null
+const TEXT_ALIGN_STYLE_REGEX = /(?:^|;)\s*text-align\s*:\s*([^;]+)/i
+
+const normalizeTextAlign = (value) => {
+  const normalized = value?.trim().toLowerCase()
+  if (normalized === 'left' || normalized === 'start') {
+    return 'left'
+  }
+  if (normalized === 'center' || normalized === 'middle') {
+    return 'center'
+  }
+  if (normalized === 'right' || normalized === 'end') {
+    return 'right'
+  }
+  return null
+}
 
 /**
  * @function module:text-actions.init
@@ -117,14 +132,52 @@ class TextActions {
     })
   }
 
-  #getMultilineTextAlignment = (computedStyle) => {
-    const styleTextAlign = this.#curtext.style?.textAlign
-    const textAlign = styleTextAlign || this.#curtext.getAttribute('text-align') || computedStyle.textAlign
-    if (textAlign === 'center' || textAlign === 'middle') {
-      return 'center'
+  #getStoredMultilineTextAlignment = () => {
+    const styleMatch = this.#curtext?.getAttribute('style')?.match(TEXT_ALIGN_STYLE_REGEX)
+    return normalizeTextAlign(styleMatch?.[1]) ??
+      normalizeTextAlign(this.#curtext?.getAttribute('text-align'))
+  }
+
+  #inferRenderedMultilineTextAlignment = () => {
+    const wrapWidth = Number.parseFloat(this.#curtext?.getAttribute('data-svgedit-wrap-width') ?? '')
+    const baseX = Number.parseFloat(this.#curtext?.getAttribute('x') ?? '')
+    if (!Number.isFinite(wrapWidth) || wrapWidth <= 0 || !Number.isFinite(baseX)) {
+      return null
     }
-    if (textAlign === 'right' || textAlign === 'end') {
-      return 'right'
+
+    const lines = Array.from(this.#curtext.querySelectorAll('tspan'))
+    for (const line of lines) {
+      const lineX = Number.parseFloat(line.getAttribute('x') ?? '')
+      if (!Number.isFinite(lineX)) {
+        continue
+      }
+
+      const offset = lineX - baseX
+      if (offset <= 1) {
+        return 'left'
+      }
+
+      const lineWidth = line.getComputedTextLength?.() ?? 0
+      const availableOffset = Math.max(0, wrapWidth - lineWidth)
+      if (availableOffset <= 1) {
+        return 'left'
+      }
+
+      return offset >= availableOffset * 0.75 ? 'right' : 'center'
+    }
+
+    return null
+  }
+
+  #getMultilineTextAlignment = (computedStyle) => {
+    const storedAlign = this.#getStoredMultilineTextAlignment()
+    if (storedAlign) {
+      return storedAlign
+    }
+
+    const renderedAlign = this.#inferRenderedMultilineTextAlignment()
+    if (renderedAlign) {
+      return renderedAlign
     }
 
     const textAnchor = this.#curtext.getAttribute('text-anchor') || computedStyle.textAnchor || 'start'
@@ -134,7 +187,7 @@ class TextActions {
     if (textAnchor === 'end') {
       return 'right'
     }
-    return 'start'
+    return normalizeTextAlign(computedStyle.textAlign) ?? 'left'
   }
 
   #ensureCursor = () => {
