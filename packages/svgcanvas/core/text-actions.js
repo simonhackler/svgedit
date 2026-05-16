@@ -118,12 +118,21 @@ class TextActions {
   }
 
   #getMultilineTextAlignment = (computedStyle) => {
+    const styleTextAlign = this.#curtext.style?.textAlign
+    const textAlign = styleTextAlign || this.#curtext.getAttribute('text-align') || computedStyle.textAlign
+    if (textAlign === 'center' || textAlign === 'middle') {
+      return 'center'
+    }
+    if (textAlign === 'right' || textAlign === 'end') {
+      return 'right'
+    }
+
     const textAnchor = this.#curtext.getAttribute('text-anchor') || computedStyle.textAnchor || 'start'
     if (textAnchor === 'middle') {
       return 'center'
     }
     if (textAnchor === 'end') {
-      return 'end'
+      return 'right'
     }
     return 'start'
   }
