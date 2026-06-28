@@ -17,10 +17,8 @@ import {
   transformPoint, transformListToTransform, getTransformList
 } from './math.js'
 import {
-  applyMultilineText,
-  getRawMultilineText,
   isMultilineTextElement,
-  syncMultilineFrameRect
+  reflowMultilineText
 } from './multiline-text.js'
 
 const {
@@ -104,7 +102,9 @@ export const getUndoManager = () => {
           if (values.stdDeviation) {
             svgCanvas.setBlurOffsets(cmd.elem.parentNode, values.stdDeviation)
           }
-          if (cmd.elem.tagName === 'text') {
+          if (cmd.elem.tagName === 'text' && isMultilineTextElement(cmd.elem)) {
+            reflowMultilineText(cmd.elem)
+          } else if (cmd.elem.tagName === 'text') {
             const [dx, dy] = [cmd.newValues.x - cmd.oldValues.x,
               cmd.newValues.y - cmd.oldValues.y]
 
@@ -120,11 +120,6 @@ export const getUndoManager = () => {
 
               tspans[i].setAttribute('x', x)
               tspans[i].setAttribute('y', y)
-            }
-
-            if (isMultilineTextElement(cmd.elem)) {
-              syncMultilineFrameRect(cmd.elem)
-              applyMultilineText(cmd.elem, getRawMultilineText(cmd.elem))
             }
           }
         }

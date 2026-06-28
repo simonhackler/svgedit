@@ -205,7 +205,6 @@ class EditorStartup {
     this.svgCanvas.bind('beforeClear', this.beforeClear.bind(this))
     this.svgCanvas.bind('afterClear', this.afterClear.bind(this))
 
-    this.svgCanvas.textActions.setInputElem($id('text'))
     const multilineInput = $id('text_multiline')
     multilineInput.spellcheck = false
     multilineInput.setAttribute('autocomplete', 'off')
@@ -213,7 +212,6 @@ class EditorStartup {
     multilineInput.setAttribute('autocapitalize', 'off')
     document.body.append(multilineInput)
     this.svgCanvas.textActions.setMultilineInputElem(multilineInput)
-    this.svgCanvas.useMultilineText = false
 
     this.setBackground(this.configObj.pref('bkgd_color'), this.configObj.pref('bkgd_url'))
 
@@ -276,10 +274,6 @@ class EditorStartup {
     const addListenerMulti = (element, eventNames, listener) => {
       eventNames.split(' ').forEach((eventName) => element.addEventListener(eventName, listener, false))
     }
-
-    addListenerMulti($id('text'), 'keyup input', (evt) => {
-      this.svgCanvas.setTextContent(evt.currentTarget.value)
-    })
 
     const getActiveEditingText = () => {
       const editingText = this.svgCanvas.textActions.getCurrentTextElement?.()
@@ -452,7 +446,7 @@ class EditorStartup {
       inp.blur()
     }
 
-    const liElems = this.$svgEditor.querySelectorAll('button, select, input:not(#text)')
+    const liElems = this.$svgEditor.querySelectorAll('button, select, input')
     const self = this
     Array.prototype.forEach.call(liElems, function (el) {
       el.addEventListener('focus', (e) => {
@@ -465,12 +459,7 @@ class EditorStartup {
         self.workarea.removeEventListener('mousedown', unfocus)
         // Go back to selecting text if in textedit mode
         if (self.svgCanvas.getMode() === 'textedit') {
-          const selected = self.svgCanvas.getSelectedElements()[0]
-          const input = selected?.tagName === 'text' &&
-            selected.getAttribute('data-svgedit-multiline') === 'true'
-            ? $id('text_multiline')
-            : $id('text')
-          input.focus()
+          $id('text_multiline').focus()
         }
       })
     })

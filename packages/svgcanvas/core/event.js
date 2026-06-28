@@ -9,11 +9,10 @@ import {
   preventClickDefault, setHref, getBBox, findDefs, getStrokedBBoxDefaultVisible
 } from './utilities.js'
 import {
-  applyMultilineText,
   enableMultilineTextElement,
+  getMultilineFrameBox,
   getTextFontSize,
-  getRawMultilineText,
-  syncMultilineFrameRect
+  setMultilineFrameBox
 } from './multiline-text.js'
 import {
   convertAttrs
@@ -447,7 +446,7 @@ const mouseMoveEvent = (evt) => {
       }, 100)
       break
     }
-    case 'textmultiline': {
+    case 'textframeresize': {
       if (selected && svgCanvas.textFrameResize) {
         const anchorX = svgCanvas.textFrameResize.anchorX
         const anchorY = svgCanvas.textFrameResize.anchorY
@@ -471,19 +470,18 @@ const mouseMoveEvent = (evt) => {
           frameWidth = snapToGrid(frameWidth)
           frameHeight = snapToGrid(frameHeight)
         }
-        const fontSize = getTextFontSize(selected)
-
-        assignAttributes(selected, {
+        setMultilineFrameBox(selected, {
           x: frameX,
-          y: frameY + fontSize,
-          'data-svgedit-wrap-width': Math.max(frameWidth, 1),
-          'data-svgedit-wrap-height': Math.max(frameHeight, 1)
-        }, 100)
-        syncMultilineFrameRect(selected)
-        applyMultilineText(selected, getRawMultilineText(selected))
+          y: frameY,
+          width: Math.max(frameWidth, 1),
+          height: Math.max(frameHeight, 1)
+        })
         svgCanvas.selectorManager.requestSelector(selected).resize()
         break
       }
+      break
+    }
+    case 'textmultiline': {
       const framePoint = resolvePointSnap(x, y)
       let w = Math.abs(framePoint.x - svgCanvas.getStartX())
       let h = Math.abs(framePoint.y - svgCanvas.getStartY())
@@ -505,26 +503,19 @@ const mouseMoveEvent = (evt) => {
     }
     case 'text': {
       const textPoint = resolvePointSnap(x, y)
-      if (svgCanvas.useMultilineText) {
-        const frameX = Math.min(svgCanvas.getStartX(), textPoint.x)
-        const frameY = Math.min(svgCanvas.getStartY(), textPoint.y)
-        const frameWidth = Math.abs(textPoint.x - svgCanvas.getStartX())
-        const frameHeight = Math.abs(textPoint.y - svgCanvas.getStartY())
+      const frameX = Math.min(svgCanvas.getStartX(), textPoint.x)
+      const frameY = Math.min(svgCanvas.getStartY(), textPoint.y)
+      const frameWidth = Math.abs(textPoint.x - svgCanvas.getStartX())
+      const frameHeight = Math.abs(textPoint.y - svgCanvas.getStartY())
 
-        if (svgCanvas.getRubberBox()) {
-          assignAttributes(svgCanvas.getRubberBox(), {
-            x: frameX * zoom,
-            y: frameY * zoom,
-            width: frameWidth * zoom,
-            height: frameHeight * zoom,
-            display: 'inline'
-          }, 100)
-        }
-      } else {
-        assignAttributes(shape, {
-          x: textPoint.x,
-          y: textPoint.y
-        }, 1000)
+      if (svgCanvas.getRubberBox()) {
+        assignAttributes(svgCanvas.getRubberBox(), {
+          x: frameX * zoom,
+          y: frameY * zoom,
+          width: frameWidth * zoom,
+          height: frameHeight * zoom,
+          display: 'inline'
+        }, 100)
       }
       break
     }
@@ -1064,53 +1055,49 @@ const mouseUpEvent = (evt) => {
         keep = true
       }
       break
-    case 'text':
+    case 'text': {
       keep = true
-      if (svgCanvas.useMultilineText) {
-        svgCanvas.getRubberBox()?.setAttribute('display', 'none')
-        const startX = svgCanvas.getStartX()
-        const startY = svgCanvas.getStartY()
-        let frameWidth = Math.abs(x - startX)
-        let frameHeight = Math.abs(y - startY)
-        const frameX = Math.min(startX, x)
-        const frameY = Math.min(startY, y)
-        const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
+      svgCanvas.getRubberBox()?.setAttribute('display', 'none')
+      const startX = svgCanvas.getStartX()
+      const startY = svgCanvas.getStartY()
+      let frameWidth = Math.abs(x - startX)
+      let frameHeight = Math.abs(y - startY)
+      const frameX = Math.min(startX, x)
+      const frameY = Math.min(startY, y)
+      const fontSize = Number(svgCanvas.getCurText('font_size')) || 16
 
-        if (frameWidth < MIN_TEXT_FRAME_SIZE) {
-          frameWidth = DEFAULT_TEXT_FRAME_WIDTH
-        }
-        if (frameHeight < MIN_TEXT_FRAME_SIZE) {
-          frameHeight = DEFAULT_TEXT_FRAME_HEIGHT
-        }
-
-        element = svgCanvas.addSVGElementsFromJson({
-          element: 'text',
-          curStyles: true,
-          attr: {
-            x: frameX,
-            y: frameY + fontSize,
-            id: svgCanvas.getNextId(),
-            fill: svgCanvas.getCurText('fill'),
-            'stroke-width': svgCanvas.getCurText('stroke_width'),
-            'font-size': svgCanvas.getCurText('font_size'),
-            'font-family': svgCanvas.getCurText('font_family'),
-            'text-anchor': 'start',
-            'xml:space': 'preserve',
-            opacity: svgCanvas.getStyle().opacity,
-            'data-svgedit-wrap-width': frameWidth,
-            'data-svgedit-wrap-height': frameHeight
-          }
-        })
-
-        enableMultilineTextElement(element)
-        svgCanvas.selectOnly([element])
-        svgCanvas.textActions.start(element)
-      } else {
-        svgCanvas.selectOnly([element])
-        svgCanvas.textActions.start(element)
+      if (frameWidth < MIN_TEXT_FRAME_SIZE) {
+        frameWidth = DEFAULT_TEXT_FRAME_WIDTH
       }
+      if (frameHeight < MIN_TEXT_FRAME_SIZE) {
+        frameHeight = DEFAULT_TEXT_FRAME_HEIGHT
+      }
+
+      element = svgCanvas.addSVGElementsFromJson({
+        element: 'text',
+        curStyles: true,
+        attr: {
+          x: frameX,
+          y: frameY + fontSize,
+          id: svgCanvas.getNextId(),
+          fill: svgCanvas.getCurText('fill'),
+          'stroke-width': svgCanvas.getCurText('stroke_width'),
+          'font-size': svgCanvas.getCurText('font_size'),
+          'font-family': svgCanvas.getCurText('font_family'),
+          'text-anchor': 'start',
+          'xml:space': 'preserve',
+          opacity: svgCanvas.getStyle().opacity,
+          'data-svgedit-wrap-width': frameWidth,
+          'data-svgedit-wrap-height': frameHeight
+        }
+      })
+
+      enableMultilineTextElement(element)
+      svgCanvas.selectOnly([element])
+      svgCanvas.textActions.start(element)
       break
-    case 'textmultiline': {
+    }
+    case 'textframeresize': {
       if (svgCanvas.textFrameResize && selectedElements[0]) {
         keep = true
         element = null
@@ -1127,12 +1114,15 @@ const mouseUpEvent = (evt) => {
           svgCanvas.addCommandToHistory(batchCmd)
           svgCanvas.call('changed', [selected])
         }
-        if (!svgCanvas.useMultilineText) {
-          svgCanvas.setCurrentMode('select')
-        }
+        svgCanvas.setCurrentMode('select')
         svgCanvas.selectorManager.requestSelector(selected).showGrips(true)
         return
       }
+      svgCanvas.textFrameResize = null
+      svgCanvas.setCurrentMode('select')
+      return
+    }
+    case 'textmultiline': {
       keep = true
       let frameWidth = Number(element.getAttribute('width')) || 0
       let frameHeight = Number(element.getAttribute('height')) || 0
@@ -1473,8 +1463,8 @@ const mouseDownEvent = (evt) => {
       if (!canResizeElement(selected)) {
         return
       }
-      svgCanvas.setCurrentMode('textmultiline')
-      // Keep selectorParentGroup as the mouse target so multiline mode can
+      svgCanvas.setCurrentMode('textframeresize')
+      // Keep selectorParentGroup as the mouse target so textframeresize mode can
       // handle its dedicated frame resize grip separately.
     } else {
       mouseTarget = selected
@@ -1724,46 +1714,27 @@ const mouseDownEvent = (evt) => {
       svgCanvas.setStartX(x)
       svgCanvas.setStartY(y)
       svgCanvas.setStarted(true)
-      if (svgCanvas.useMultilineText) {
-        if (!svgCanvas.getRubberBox()) {
-          svgCanvas.setRubberBox(svgCanvas.selectorManager.getRubberBandBox())
-        }
-        assignAttributes(svgCanvas.getRubberBox(), {
-          x: x * zoom,
-          y: y * zoom,
-          width: 0,
-          height: 0,
-          display: 'inline'
-        }, 100)
-        break
+      if (!svgCanvas.getRubberBox()) {
+        svgCanvas.setRubberBox(svgCanvas.selectorManager.getRubberBandBox())
       }
-      /* const newText = */ svgCanvas.addSVGElementsFromJson({
-        element: 'text',
-        curStyles: true,
-        attr: {
-          x,
-          y,
-          id: svgCanvas.getNextId(),
-          fill: svgCanvas.getCurText('fill'),
-          'stroke-width': svgCanvas.getCurText('stroke_width'),
-          'font-size': svgCanvas.getCurText('font_size'),
-          'font-family': svgCanvas.getCurText('font_family'),
-          'text-anchor': svgCanvas.useMultilineText ? 'start' : 'middle',
-          'xml:space': 'preserve',
-          opacity: curShape.opacity
-        }
-      })
-      // newText.textContent = 'text';
+      assignAttributes(svgCanvas.getRubberBox(), {
+        x: x * zoom,
+        y: y * zoom,
+        width: 0,
+        height: 0,
+        display: 'inline'
+      }, 100)
       break
-    case 'textmultiline':
+    case 'textframeresize':
       if (mouseTarget === svgCanvas.selectorManager.selectorParentGroup && selectedElements[0]) {
         const grip = evt.target
         if (dataStorage.get(grip, 'type') === 'textresize') {
           const selected = selectedElements[0]
+          const frameBox = getMultilineFrameBox(selected)
           const fontSize = getTextFontSize(selected)
           svgCanvas.textFrameResize = {
-            anchorX: Number.parseFloat(selected.getAttribute('x')) || 0,
-            anchorY: (Number.parseFloat(selected.getAttribute('y')) || fontSize) - fontSize,
+            anchorX: frameBox?.x ?? (Number.parseFloat(selected.getAttribute('x')) || 0),
+            anchorY: frameBox?.y ?? ((Number.parseFloat(selected.getAttribute('y')) || fontSize) - fontSize),
             oldValues: {
               x: selected.getAttribute('x') || '',
               y: selected.getAttribute('y') || '',
@@ -1775,6 +1746,9 @@ const mouseDownEvent = (evt) => {
           break
         }
       }
+      svgCanvas.setCurrentMode('select')
+      break
+    case 'textmultiline':
       ({ x, y } = snapCreationStartPoint(x, y))
       svgCanvas.setStartX(x)
       svgCanvas.setStartY(y)

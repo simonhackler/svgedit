@@ -21,7 +21,7 @@ import {
   getTransformList
 } from './math.js'
 import { convertToNum } from './units.js'
-import { syncMultilineFrameRect } from './multiline-text.js'
+import { isMultilineTextElement, reflowMultilineText } from './multiline-text.js'
 
 let svgCanvas = null
 
@@ -234,41 +234,42 @@ export const remapElement = (selected, changes, m) => {
 
       finishUp()
 
-      // Handle child 'tspan' elements
-      const childNodes = selected.childNodes
-      for (let i = 0; i < childNodes.length; i++) {
-        const child = childNodes[i]
-        if (child.nodeType === 1 && child.tagName === 'tspan') {
-          const childChanges = {}
-          const hasX = child.hasAttribute('x')
-          const hasY = child.hasAttribute('y')
-          if (hasX) {
-            const childX = convertToNum('x', child.getAttribute('x'))
-            const childPtX = remap(childX, changes.y).x
-            childChanges.x = childPtX
-          }
-          if (hasY) {
-            const childY = convertToNum('y', child.getAttribute('y'))
-            const childPtY = remap(changes.x, childY).y
-            childChanges.y = childPtY
-          }
+      if (isMultilineTextElement(selected)) {
+        reflowMultilineText(selected)
+      } else {
+        const childNodes = selected.childNodes
+        for (let i = 0; i < childNodes.length; i++) {
+          const child = childNodes[i]
+          if (child.nodeType === 1 && child.tagName === 'tspan') {
+            const childChanges = {}
+            const hasX = child.hasAttribute('x')
+            const hasY = child.hasAttribute('y')
+            if (hasX) {
+              const childX = convertToNum('x', child.getAttribute('x'))
+              const childPtX = remap(childX, changes.y).x
+              childChanges.x = childPtX
+            }
+            if (hasY) {
+              const childY = convertToNum('y', child.getAttribute('y'))
+              const childPtY = remap(changes.x, childY).y
+              childChanges.y = childPtY
+            }
 
-          let tspanFS = child.getAttribute('font-size')
-          if (!tspanFS) {
-            tspanFS = window.getComputedStyle(child).fontSize
-          }
-          const tspanFSNum = parseFloat(tspanFS)
-          if (!isNaN(tspanFSNum)) {
-            childChanges['font-size'] = tspanFSNum * Math.abs(m.a)
-          }
+            let tspanFS = child.getAttribute('font-size')
+            if (!tspanFS) {
+              tspanFS = window.getComputedStyle(child).fontSize
+            }
+            const tspanFSNum = parseFloat(tspanFS)
+            if (!isNaN(tspanFSNum)) {
+              childChanges['font-size'] = tspanFSNum * Math.abs(m.a)
+            }
 
-          if (hasX || hasY || childChanges['font-size']) {
-            assignAttributes(child, childChanges, 1000, true)
+            if (hasX || hasY || childChanges['font-size']) {
+              assignAttributes(child, childChanges, 1000, true)
+            }
           }
         }
       }
-
-      syncMultilineFrameRect(selected)
       break
     }
     case 'tspan': {

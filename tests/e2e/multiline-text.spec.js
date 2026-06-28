@@ -564,6 +564,7 @@ test.describe('Multiline text', () => {
     await expect(textNode).toHaveAttribute('data-svgedit-wrap-width', '80')
     await expect(textNode).toHaveAttribute('data-svgedit-wrap-height', '80')
     await expectBackedFrame(page, textNode, { width: 80, height: 80 })
+    await expect.poll(() => page.evaluate(() => window.svgEditor.svgCanvas.getMode())).toBe('select')
   })
 
   test('undo and redo restore a created multiline text element', async ({ page }) => {

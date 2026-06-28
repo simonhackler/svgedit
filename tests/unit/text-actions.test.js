@@ -9,7 +9,6 @@ describe('TextActions', () => {
   let svgCanvas
   let svgRoot
   let textElement
-  let inputElement
   let multilineInputElement
   let mockSelectorManager
 
@@ -42,17 +41,12 @@ describe('TextActions', () => {
     // Mock text measurement methods
     textElement.getStartPositionOfChar = vi.fn((i) => ({ x: 100 + i * 10, y: 100 }))
     textElement.getEndPositionOfChar = vi.fn((i) => ({ x: 100 + (i + 1) * 10, y: 100 }))
-    textElement.getCharNumAtPosition = vi.fn(() => 0)
     textElement.getBBox = vi.fn(() => ({
       x: 100,
       y: 90,
       width: 40,
       height: 20
     }))
-
-    inputElement = document.createElement('input')
-    inputElement.type = 'text'
-    document.body.append(inputElement)
 
     multilineInputElement = document.createElement('textarea')
     document.body.append(multilineInputElement)
@@ -92,7 +86,6 @@ describe('TextActions', () => {
     // Initialize utilities and text-actions modules
     utilitiesInit(svgCanvas)
     textActionsInit(svgCanvas)
-    textActionsMethod.setInputElem(inputElement)
     textActionsMethod.setMultilineInputElem(multilineInputElement)
   })
 
@@ -118,7 +111,6 @@ describe('TextActions', () => {
         'setCursor',
         'toEditMode',
         'toSelectMode',
-        'setInputElem',
         'setMultilineInputElem',
         'clear',
         'init'
@@ -130,14 +122,7 @@ describe('TextActions', () => {
     })
   })
 
-  describe('setInputElem', () => {
-    it('should set the input element', () => {
-      const newInput = document.createElement('input')
-      textActionsMethod.setInputElem(newInput)
-      // Method should not throw and should be callable
-      expect(true).toBe(true)
-    })
-
+  describe('setMultilineInputElem', () => {
     it('should set the multiline input element', () => {
       const newInput = document.createElement('textarea')
       textActionsMethod.setMultilineInputElem(newInput)
@@ -231,7 +216,7 @@ describe('TextActions', () => {
       expect(mockSelectorManager.requestSelector).toHaveBeenCalled()
     })
 
-    it('should accept x, y coordinates for cursor positioning', () => {
+    it('should ignore obsolete cursor coordinates', () => {
       textActionsMethod.start(textElement)
       textActionsMethod.toEditMode(100, 100)
 
@@ -374,15 +359,8 @@ describe('TextActions', () => {
   describe('Private methods encapsulation', () => {
     it('should not expose private methods', () => {
       const privateMethodNames = [
-        '#setCursor',
-        '#setSelection',
-        '#getIndexFromPoint',
-        '#setCursorFromPoint',
-        '#setEndSelectionFromPoint',
-        '#screenToPt',
         '#ptToScreen',
-        '#selectAll',
-        '#selectWord'
+        '#setMultilineCursor'
       ]
 
       privateMethodNames.forEach(method => {
@@ -395,14 +373,8 @@ describe('TextActions', () => {
         '#curtext',
         '#textinput',
         '#cursor',
-        '#selblock',
         '#blinker',
-        '#chardata',
-        '#textbb',
-        '#matrix',
-        '#lastX',
-        '#lastY',
-        '#allowDbl'
+        '#matrix'
       ]
 
       privateFieldNames.forEach(field => {
@@ -468,7 +440,7 @@ describe('TextActions', () => {
     })
 
     it('should handle setCursor with empty input', () => {
-      inputElement.value = ''
+      multilineInputElement.value = ''
       textActionsMethod.start(textElement)
       textActionsMethod.init()
       textActionsMethod.setCursor()
@@ -479,30 +451,6 @@ describe('TextActions', () => {
       textElement.removeAttribute('transform')
       textActionsMethod.start(textElement)
       textActionsMethod.init()
-      expect(true).toBe(true)
-    })
-
-    it('should handle getIndexFromPoint with single character', () => {
-      textElement.textContent = 'A'
-      textActionsMethod.start(textElement)
-      textActionsMethod.init()
-      textActionsMethod.mouseDown({ pageX: 100, pageY: 100 }, textElement, 100, 100)
-      expect(true).toBe(true)
-    })
-
-    it('should handle getIndexFromPoint outside text range', () => {
-      textElement.getCharNumAtPosition = vi.fn(() => -1)
-      textActionsMethod.start(textElement)
-      textActionsMethod.init()
-      textActionsMethod.mouseDown({ pageX: 50, pageY: 100 }, textElement, 50, 100)
-      expect(true).toBe(true)
-    })
-
-    it('should handle getIndexFromPoint at end of text', () => {
-      textElement.getCharNumAtPosition = vi.fn(() => 100)
-      textActionsMethod.start(textElement)
-      textActionsMethod.init()
-      textActionsMethod.mouseDown({ pageX: 200, pageY: 100 }, textElement, 200, 100)
       expect(true).toBe(true)
     })
 

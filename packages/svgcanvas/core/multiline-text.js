@@ -376,6 +376,26 @@ export const isMultilineTextElement = (textElem) => {
   return forceMultiline || Boolean(raw && (raw.includes('\n') || raw.includes('\r'))) || hasWrapWidth
 }
 
+export const getMultilineFrameBox = (textElem) => {
+  if (!isMultilineTextElement(textElem)) {
+    return null
+  }
+
+  const width = toNumber(textElem.getAttribute(WRAP_WIDTH_ATTR), Number.NaN)
+  const height = toNumber(textElem.getAttribute(WRAP_HEIGHT_ATTR), Number.NaN)
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    return null
+  }
+
+  const fontSize = getTextFontSize(textElem)
+  return {
+    x: toNumber(textElem.getAttribute('x'), 0),
+    y: toNumber(textElem.getAttribute('y'), fontSize) - fontSize,
+    width,
+    height
+  }
+}
+
 export const enableMultilineTextElement = (textElem) => {
   if (!textElem) {
     return
@@ -435,4 +455,26 @@ export const syncMultilineFrameRect = (textElem) => {
   frameRect.setAttribute('width', String(width))
   frameRect.setAttribute('height', String(height))
   return frameRect
+}
+
+export const reflowMultilineText = (textElem) => {
+  if (!isMultilineTextElement(textElem)) {
+    return
+  }
+
+  syncMultilineFrameRect(textElem)
+  applyMultilineText(textElem, getRawMultilineText(textElem))
+}
+
+export const setMultilineFrameBox = (textElem, box) => {
+  if (!textElem || !box) {
+    return
+  }
+
+  const fontSize = getTextFontSize(textElem)
+  textElem.setAttribute('x', String(toNumber(box.x, 0)))
+  textElem.setAttribute('y', String(toNumber(box.y, 0) + fontSize))
+  textElem.setAttribute(WRAP_WIDTH_ATTR, String(Math.max(1, toNumber(box.width, 1))))
+  textElem.setAttribute(WRAP_HEIGHT_ATTR, String(Math.max(1, toNumber(box.height, 1))))
+  reflowMultilineText(textElem)
 }

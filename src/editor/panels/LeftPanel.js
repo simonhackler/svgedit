@@ -46,7 +46,6 @@ class LeftPanel {
   clickSelect () {
     if (this.updateLeftPanel('tool_select')) {
       // this.editor.workarea.style.cursor = 'auto'
-      this.editor.svgCanvas.useMultilineText = false
       this.editor.svgCanvas.setMode('select')
       const selected = this.editor.svgCanvas.getSelectedElements()[0]
       if (selected) {
@@ -175,8 +174,7 @@ class LeftPanel {
    */
   clickText () {
     if (this.updateLeftPanel('tool_text')) {
-      this.editor.svgCanvas.useMultilineText = false
-      this.editor.svgCanvas.setMode('text')
+      this.editor.svgCanvas.setMode('textmultiline')
     }
   }
 
@@ -186,7 +184,6 @@ class LeftPanel {
    */
   clickTextMultiline () {
     if (this.updateLeftPanel('tool_text_multiline')) {
-      this.editor.svgCanvas.useMultilineText = true
       this.editor.svgCanvas.setMode('textmultiline')
       const selected = this.editor.svgCanvas.getSelectedElements()[0]
       if (selected?.tagName === 'text') {

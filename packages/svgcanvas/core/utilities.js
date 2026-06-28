@@ -14,6 +14,7 @@ import {
   transformBox,
   getTransformList
 } from './math.js'
+import { getMultilineFrameBox } from './multiline-text.js'
 import { getClosest, mergeDeep } from '../common/util.js'
 
 // Much faster than running getBBox() every time
@@ -514,14 +515,17 @@ export const getPathBBox = (path) => {
  */
 export const getBBox = (elem) => {
   const selected = elem ?? svgCanvas.getSelectedElements()[0]
-  if (elem.nodeType !== 1) return null
+  if (!selected || selected.nodeType !== 1) return null
 
   const elname = selected.nodeName
 
   let ret = null
   switch (elname) {
-    case 'text':
-      if (selected.textContent === '') {
+    case 'text': {
+      const frameBox = getMultilineFrameBox(selected)
+      if (frameBox) {
+        ret = frameBox
+      } else if (selected.textContent === '') {
         selected.textContent = 'a' // Some character needed for the selector to use.
         ret = selected.getBBox()
         selected.textContent = ''
@@ -529,6 +533,7 @@ export const getBBox = (elem) => {
         ret = selected.getBBox()
       }
       break
+    }
     case 'path':
     case 'g':
     case 'a':

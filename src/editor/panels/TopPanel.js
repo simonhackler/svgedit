@@ -394,15 +394,12 @@ class TopPanel {
           $id('tool_text_length').value = elem.getAttribute('textLength') ?? 0
           $id('tool_length_adjust').value =
             elem.getAttribute('lengthAdjust') ?? 0
-          $id('text').value = this.editor.svgCanvas.getText()
           $id('text_multiline').value = this.editor.svgCanvas.getText()
           if (this.editor.svgCanvas.addedNew) {
             // Timeout needed for IE9
             setTimeout(() => {
-              if (!this.editor.svgCanvas.useMultilineText) {
-                $id('text').focus()
-                $id('text').select()
-              }
+              $id('text_multiline').focus()
+              $id('text_multiline').select()
             }, 100)
           }
           // text

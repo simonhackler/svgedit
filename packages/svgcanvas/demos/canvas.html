@@ -22,7 +22,7 @@
       <button onclick="alert(canvas.getSvgString())">Get SVG</button>
     </div>
     <!-- Not visible, but useful -->
-    <input id="text" style="width:0;height:0;opacity: 0"/>
+    <textarea id="text_multiline" style="position:fixed;left:-10000px;top:-10000px;width:1px;height:1px;opacity:0"></textarea>
     <script type="module">
 /* globals canvas */
 import SvgCanvas from '@svgedit/svgcanvas'
@@ -32,7 +32,7 @@ const { width, height } = { width: 500, height: 300 }
 window.width = width
 window.height = height
 
-const hiddenTextTagId = 'text'
+const hiddenTextTagId = 'text_multiline'
 
 const config = {
   initFill: { color: 'FFFFFF', opacity: 1 },
@@ -54,7 +54,7 @@ window.fill = function (colour) {
 }
 
 const hiddenTextTag = window.canvas.$id(hiddenTextTagId)
-window.canvas.textActions.setInputElem(hiddenTextTag)
+window.canvas.textActions.setMultilineInputElem(hiddenTextTag)
 
 const addListenerMulti = (element, eventNames, listener) => {
   eventNames.split(' ').forEach((eventName) => element.addEventListener(eventName, listener, false))
@@ -62,6 +62,7 @@ const addListenerMulti = (element, eventNames, listener) => {
 
 addListenerMulti(hiddenTextTag, 'keyup input', (evt) => {
   window.canvas.setTextContent(evt.currentTarget.value)
+  window.canvas.textActions.setCursor()
 })
     </script>
   </body>

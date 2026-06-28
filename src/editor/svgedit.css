@@ -530,11 +530,6 @@ input[type=text] {
   padding-right: 5px;
 }
 
-#text {
-  position: absolute;
-  left: -9999px;
-}
-
 .bottom-icon {
   width: 22px;
 }

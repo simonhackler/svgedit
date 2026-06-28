@@ -6,8 +6,6 @@
  * @copyright 2010 Jeff Schiller, 2010 Alexis Deveria
  */
 
-const NSSVG = 'http://www.w3.org/2000/svg'
-
 /**
  * Browser capabilities and detection object.
  * Uses modern feature detection and lazy evaluation patterns.
@@ -59,41 +57,6 @@ class BrowserDetector {
     }
     return this.#cachedResults.get('isMac')
   }
-
-  /**
-   * Tests if the browser supports accurate text character positioning
-   * @returns {boolean}
-   */
-  get supportsGoodTextCharPos () {
-    if (!this.#cachedResults.has('supportsGoodTextCharPos')) {
-      this.#cachedResults.set('supportsGoodTextCharPos', this.#testTextCharPos())
-    }
-    return this.#cachedResults.get('supportsGoodTextCharPos')
-  }
-
-  /**
-   * Private method to test text character positioning support
-   * @returns {boolean}
-   */
-  #testTextCharPos () {
-    const svgroot = document.createElementNS(NSSVG, 'svg')
-    const svgContent = document.createElementNS(NSSVG, 'svg')
-    document.documentElement.append(svgroot)
-    svgContent.setAttribute('x', 5)
-    svgroot.append(svgContent)
-    const text = document.createElementNS(NSSVG, 'text')
-    text.textContent = 'a'
-    svgContent.append(text)
-
-    try {
-      const pos = text.getStartPositionOfChar(0).x
-      return pos === 0
-    } catch (err) {
-      return false
-    } finally {
-      svgroot.remove()
-    }
-  }
 }
 
 // Create singleton instance
@@ -123,12 +86,6 @@ export const isChrome = () => browser.isChrome
  * @returns {boolean}
  */
 export const isMac = () => browser.isMac
-
-/**
- * @function module:browser.supportsGoodTextCharPos
- * @returns {boolean}
- */
-export const supportsGoodTextCharPos = () => browser.supportsGoodTextCharPos
 
 // Export browser instance for direct access
 export default browser

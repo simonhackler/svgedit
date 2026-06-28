@@ -9,7 +9,6 @@
 import { isWebkit } from '../common/browser.js'
 import { getRotationAngle, getBBox, getStrokedBBox } from './utilities.js'
 import { transformListToTransform, transformBox, transformPoint, matrixMultiply, getTransformList } from './math.js'
-import { getTextFontSize } from './multiline-text.js'
 import { NS } from './namespaces'
 import { warn } from '../common/logger.js'
 
@@ -81,17 +80,6 @@ export class Selector {
         style: 'pointer-events:none'
       }
     })
-    this.frameRect = svgCanvas.createSVGElement({
-      element: 'path',
-      attr: {
-        id: `selectedFrame${this.id}`,
-        fill: 'none',
-        stroke: '#0A8',
-        'stroke-width': '2',
-        style: 'pointer-events:none'
-      }
-    })
-    this.selectorGroup.append(this.frameRect)
     this.textResizeGrip = svgCanvas.createSVGElement({
       element: 'rect',
       attr: {
@@ -301,40 +289,14 @@ export class Selector {
       selectedBox.setAttribute('d', dstr)
       this.selectorGroup.setAttribute('transform', xform)
       if (hasFrame) {
-        const fontSize = getTextFontSize(selected)
-        const frameX = Number.parseFloat(selected.getAttribute('x')) || 0
-        const frameY = (Number.parseFloat(selected.getAttribute('y')) || 0) - fontSize
-        const frameBox = transformBox(frameX * zoom, frameY * zoom, wrapWidth * zoom, wrapHeight * zoom, m)
-        let fminx = frameBox.aabox.x
-        let fminy = frameBox.aabox.y
-        let fmaxx = frameBox.aabox.x + frameBox.aabox.width
-        let fmaxy = frameBox.aabox.y + frameBox.aabox.height
-
-        if (angle) {
-          const rot = svgCanvas.getSvgRoot().createSVGTransform()
-          const fcx = fminx + (fmaxx - fminx) / 2
-          const fcy = fminy + (fmaxy - fminy) / 2
-          rot.setRotate(-angle, fcx, fcy)
-          const rotm = rot.matrix
-          const tl = transformPoint(frameBox.tl.x, frameBox.tl.y, rotm)
-          const tr = transformPoint(frameBox.tr.x, frameBox.tr.y, rotm)
-          const bl = transformPoint(frameBox.bl.x, frameBox.bl.y, rotm)
-          const br = transformPoint(frameBox.br.x, frameBox.br.y, rotm)
-          fminx = Math.min(tl.x, tr.x, bl.x, br.x)
-          fminy = Math.min(tl.y, tr.y, bl.y, br.y)
-          fmaxx = Math.max(tl.x, tr.x, bl.x, br.x)
-          fmaxy = Math.max(tl.y, tr.y, bl.y, br.y)
-        }
-
-        const frameD = `M${fminx},${fminy} L${fmaxx},${fminy} ${fmaxx},${fmaxy} ${fminx},${fmaxy}z`
-        this.frameRect.setAttribute('d', frameD)
-        this.frameRect.setAttribute('stroke', isOverflowing ? '#D11' : '#0A8')
-        this.frameRect.setAttribute('display', 'inline')
-        this.textResizeGrip.setAttribute('x', String(fmaxx - 5))
-        this.textResizeGrip.setAttribute('y', String(fmaxy - 5))
-        this.textResizeGrip.setAttribute('transform', `rotate(45 ${fmaxx} ${fmaxy})`)
+        selectedBox.setAttribute('stroke', isOverflowing ? '#D11' : '#22C')
+        const [gripX, gripY] = this.gripCoords.se
+        this.textResizeGrip.setAttribute('x', String(gripX - 5))
+        this.textResizeGrip.setAttribute('y', String(gripY - 5))
+        this.textResizeGrip.setAttribute('transform', `rotate(45 ${gripX} ${gripY})`)
+        this.textResizeGrip.setAttribute('display', 'inline')
       } else {
-        this.frameRect.setAttribute('display', 'none')
+        selectedBox.setAttribute('stroke', '#22C')
         this.textResizeGrip.setAttribute('display', 'none')
       }
       Object.entries(this.gripCoords).forEach(([dir, coords]) => {
@@ -352,7 +314,6 @@ export class Selector {
       mgr.rotateGrip.setAttribute('cy', nbay - (gripRadius * 5))
     }
     if (!bbox || !hasFrame) {
-      this.frameRect.setAttribute('display', 'none')
       this.textResizeGrip.setAttribute('display', 'none')
     }
     if (!canResizeElement(selected)) {
