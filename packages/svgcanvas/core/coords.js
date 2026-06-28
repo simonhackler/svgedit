@@ -21,6 +21,7 @@ import {
   getTransformList
 } from './math.js'
 import { convertToNum } from './units.js'
+import { syncMultilineFrameRect } from './multiline-text.js'
 
 let svgCanvas = null
 
@@ -222,6 +223,15 @@ export const remapElement = (selected, changes, m) => {
         changes['font-size'] = fontSizeNum * Math.abs(m.a)
       }
 
+      const wrapWidth = parseFloat(selected.getAttribute('data-svgedit-wrap-width'))
+      if (!isNaN(wrapWidth)) {
+        changes['data-svgedit-wrap-width'] = wrapWidth * Math.abs(m.a)
+      }
+      const wrapHeight = parseFloat(selected.getAttribute('data-svgedit-wrap-height'))
+      if (!isNaN(wrapHeight)) {
+        changes['data-svgedit-wrap-height'] = wrapHeight * Math.abs(m.d)
+      }
+
       finishUp()
 
       // Handle child 'tspan' elements
@@ -257,6 +267,8 @@ export const remapElement = (selected, changes, m) => {
           }
         }
       }
+
+      syncMultilineFrameRect(selected)
       break
     }
     case 'tspan': {

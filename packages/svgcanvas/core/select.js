@@ -16,6 +16,7 @@ import { warn } from '../common/logger.js'
 let svgCanvas
 // change radius if touch screen
 const gripRadius = window.ontouchstart ? 10 : 4
+const canResizeElement = (elem) => Boolean(elem) && !elem.closest?.('[data-svgedit-resizable="false"]')
 
 /**
  * Private singleton manager for selector state
@@ -143,10 +144,12 @@ export class Selector {
   * @returns {void}
   */
   showGrips (show) {
-    const bShow = show ? 'inline' : 'none'
     const elem = this.selectedElement
+    const canResize = canResizeElement(elem)
+    const bShow = show && canResize ? 'inline' : 'none'
     this.hasGrips = show
     const showTextResizeGrip = show &&
+      canResize &&
       elem?.tagName === 'text' &&
       Number.isFinite(Number.parseFloat(elem.getAttribute('data-svgedit-wrap-width'))) &&
       Number.isFinite(Number.parseFloat(elem.getAttribute('data-svgedit-wrap-height')))
@@ -350,6 +353,10 @@ export class Selector {
     }
     if (!bbox || !hasFrame) {
       this.frameRect.setAttribute('display', 'none')
+      this.textResizeGrip.setAttribute('display', 'none')
+    }
+    if (!canResizeElement(selected)) {
+      mgr.selectorGripsGroup.setAttribute('display', 'none')
       this.textResizeGrip.setAttribute('display', 'none')
     }
   }

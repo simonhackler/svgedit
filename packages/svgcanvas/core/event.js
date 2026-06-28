@@ -160,6 +160,8 @@ const resolveResizeSnap = (resizeMode, bbox, dx, dy) => {
   return snap
 }
 
+const canResizeElement = (elem) => Boolean(elem) && !elem.closest?.('[data-svgedit-resizable="false"]')
+
 const snapCreationStartPoint = (x, y) => {
   const snap = resolvePointSnap(x, y)
   return {
@@ -1461,10 +1463,16 @@ const mouseDownEvent = (evt) => {
       mouseTarget = selected
       // resizing
     } else if (griptype === 'resize') {
+      if (!canResizeElement(selected)) {
+        return
+      }
       svgCanvas.setCurrentMode('resize')
       svgCanvas.setCurrentResizeMode(dataStorage.get(grip, 'dir'))
       mouseTarget = selected
     } else if (griptype === 'textresize') {
+      if (!canResizeElement(selected)) {
+        return
+      }
       svgCanvas.setCurrentMode('textmultiline')
       // Keep selectorParentGroup as the mouse target so multiline mode can
       // handle its dedicated frame resize grip separately.

@@ -4,7 +4,6 @@ import { NS } from './namespaces.js'
 const RAW_TEXT_ATTR = 'data-svgedit-raw-text'
 const WRAP_WIDTH_ATTR = 'data-svgedit-wrap-width'
 const WRAP_HEIGHT_ATTR = 'data-svgedit-wrap-height'
-const LINE_HEIGHT_ATTR = 'data-svgedit-line-height'
 const MULTILINE_ATTR = 'data-svgedit-multiline'
 const OVERFLOW_ATTR = 'data-svgedit-text-overflow'
 const EMPTY_LINE_ATTR = 'data-svgedit-empty-line'
@@ -77,10 +76,6 @@ export const getTextFontSize = (textElem) => {
 
 export const getTextLineHeight = (textElem) => {
   const fontSize = getTextFontSize(textElem)
-  const storedLineHeight = toNumber(textElem?.getAttribute(LINE_HEIGHT_ATTR), Number.NaN)
-  if (Number.isFinite(storedLineHeight) && storedLineHeight > 0) {
-    return storedLineHeight
-  }
 
   const computedLineHeight = parseLength(window.getComputedStyle(textElem).lineHeight, fontSize)
   if (Number.isFinite(computedLineHeight) && computedLineHeight > 0) {
@@ -398,7 +393,6 @@ export const enableMultilineTextElement = (textElem) => {
 
   textElem.setAttribute(WRAP_WIDTH_ATTR, String(promotedWidth))
   textElem.setAttribute(WRAP_HEIGHT_ATTR, String(promotedHeight))
-  textElem.setAttribute(LINE_HEIGHT_ATTR, String(lineHeight))
   textElem.setAttribute('x', String(frameX))
   textElem.setAttribute('y', String(frameY + fontSize))
   textElem.setAttribute('text-anchor', 'start')
