@@ -460,16 +460,10 @@ const mouseMoveEvent = (evt) => {
           resizePoint = transformPoint(resizePoint.x, resizePoint.y, resizeMatrix.inverse())
         }
 
-        let frameX = Math.min(anchorX, resizePoint.x)
-        let frameY = Math.min(anchorY, resizePoint.y)
-        let frameWidth = Math.max(Math.abs(resizePoint.x - anchorX), 1)
-        let frameHeight = Math.max(Math.abs(resizePoint.y - anchorY), 1)
-        if (snappedResizePoint.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
-          frameX = snapToGrid(frameX)
-          frameY = snapToGrid(frameY)
-          frameWidth = snapToGrid(frameWidth)
-          frameHeight = snapToGrid(frameHeight)
-        }
+        const frameX = Math.min(anchorX, resizePoint.x)
+        const frameY = Math.min(anchorY, resizePoint.y)
+        const frameWidth = Math.max(Math.abs(resizePoint.x - anchorX), 1)
+        const frameHeight = Math.max(Math.abs(resizePoint.y - anchorY), 1)
         setMultilineFrameBox(selected, {
           x: frameX,
           y: frameY,
@@ -483,16 +477,10 @@ const mouseMoveEvent = (evt) => {
     }
     case 'textmultiline': {
       const framePoint = resolvePointSnap(x, y)
-      let w = Math.abs(framePoint.x - svgCanvas.getStartX())
-      let h = Math.abs(framePoint.y - svgCanvas.getStartY())
-      let newX = Math.min(svgCanvas.getStartX(), framePoint.x)
-      let newY = Math.min(svgCanvas.getStartY(), framePoint.y)
-      if (framePoint.snapTarget !== 'page-border' && svgCanvas.getCurConfig().gridSnapping) {
-        w = snapToGrid(w)
-        h = snapToGrid(h)
-        newX = snapToGrid(newX)
-        newY = snapToGrid(newY)
-      }
+      const w = Math.abs(framePoint.x - svgCanvas.getStartX())
+      const h = Math.abs(framePoint.y - svgCanvas.getStartY())
+      const newX = Math.min(svgCanvas.getStartX(), framePoint.x)
+      const newY = Math.min(svgCanvas.getStartY(), framePoint.y)
       assignAttributes(shape, {
         width: w,
         height: h,
@@ -1114,12 +1102,12 @@ const mouseUpEvent = (evt) => {
           svgCanvas.addCommandToHistory(batchCmd)
           svgCanvas.call('changed', [selected])
         }
-        svgCanvas.setCurrentMode('select')
+        svgCanvas.textActions.toSelectMode(true)
         svgCanvas.selectorManager.requestSelector(selected).showGrips(true)
         return
       }
       svgCanvas.textFrameResize = null
-      svgCanvas.setCurrentMode('select')
+      svgCanvas.textActions.toSelectMode(true)
       return
     }
     case 'textmultiline': {
@@ -1463,7 +1451,9 @@ const mouseDownEvent = (evt) => {
       if (!canResizeElement(selected)) {
         return
       }
+      svgCanvas.textActions.finishEdit();
       svgCanvas.setCurrentMode('textframeresize')
+
       // Keep selectorParentGroup as the mouse target so textframeresize mode can
       // handle its dedicated frame resize grip separately.
     } else {

@@ -300,6 +300,11 @@ export const recalculateDimensions = selected => {
   }
   // Save the start transform value
   initial.transform = svgCanvas.getStartTransform() || ''
+  if (selected.tagName === 'text') {
+    initial['font-size'] = selected.getAttribute('font-size')
+    initial['data-svgedit-wrap-width'] = selected.getAttribute('data-svgedit-wrap-width')
+    initial['data-svgedit-wrap-height'] = selected.getAttribute('data-svgedit-wrap-height')
+  }
 
   let oldcenter, newcenter
 

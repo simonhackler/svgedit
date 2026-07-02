@@ -64,6 +64,12 @@ const pathMap = [
   0, 'z', 'M', 'm', 'L', 'l', 'C', 'c', 'Q', 'q', 'A', 'a', 'H', 'h', 'V', 'v', 'S', 's', 'T', 't'
 ]
 
+const GRID_SNAP_EXCLUDED_ATTRS = new Set([
+  'font-size',
+  'data-svgedit-wrap-width',
+  'data-svgedit-wrap-height'
+])
+
 /**
  * Applies coordinate changes to an element based on the given matrix.
  * @function module:coords.remapElement
@@ -84,7 +90,10 @@ export const remapElement = (selected, changes, m) => {
   const finishUp = () => {
     if (doSnapping) {
       for (const [attr, value] of Object.entries(changes)) {
-        changes[attr] = snapToGrid(value)
+        // Grid snapping should place elements, not alter text rendering or multiline frame metadata.
+        if (!GRID_SNAP_EXCLUDED_ATTRS.has(attr)) {
+          changes[attr] = snapToGrid(value)
+        }
       }
     }
     assignAttributes(selected, changes, 1000, true)
@@ -211,25 +220,28 @@ export const remapElement = (selected, changes, m) => {
       changes.x = pt.x
       changes.y = pt.y
 
-      // Scale font-size
-      let fontSize = selected.getAttribute('font-size')
-      if (!fontSize) {
-        // If not directly set, try computed style
-        fontSize = window.getComputedStyle(selected).fontSize
-      }
-      const fontSizeNum = parseFloat(fontSize)
-      if (!isNaN(fontSizeNum)) {
-        // Assume uniform scaling and use m.a
-        changes['font-size'] = fontSizeNum * Math.abs(m.a)
+      const scaleX = Math.abs(m.a)
+      const scaleY = Math.abs(m.d)
+      if (scaleX !== 1) {
+        let fontSize = selected.getAttribute('font-size')
+        if (!fontSize) {
+          // If not directly set, try computed style
+          fontSize = window.getComputedStyle(selected).fontSize
+        }
+        const fontSizeNum = parseFloat(fontSize)
+        if (!isNaN(fontSizeNum)) {
+          // Assume uniform scaling and use m.a
+          changes['font-size'] = fontSizeNum * scaleX
+        }
       }
 
       const wrapWidth = parseFloat(selected.getAttribute('data-svgedit-wrap-width'))
-      if (!isNaN(wrapWidth)) {
-        changes['data-svgedit-wrap-width'] = wrapWidth * Math.abs(m.a)
+      if (!isNaN(wrapWidth) && scaleX !== 1) {
+        changes['data-svgedit-wrap-width'] = wrapWidth * scaleX
       }
       const wrapHeight = parseFloat(selected.getAttribute('data-svgedit-wrap-height'))
-      if (!isNaN(wrapHeight)) {
-        changes['data-svgedit-wrap-height'] = wrapHeight * Math.abs(m.d)
+      if (!isNaN(wrapHeight) && scaleY !== 1) {
+        changes['data-svgedit-wrap-height'] = wrapHeight * scaleY
       }
 
       finishUp()

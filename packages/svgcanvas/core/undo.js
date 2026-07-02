@@ -27,6 +27,22 @@ const {
 
 let svgCanvas = null
 
+const reflowMultilineTextElements = (elems) => {
+  const seen = new Set()
+  elems.forEach((elem) => {
+    if (
+      !elem ||
+      seen.has(elem) ||
+      elem.tagName !== 'text' ||
+      !isMultilineTextElement(elem)
+    ) {
+      return
+    }
+    seen.add(elem)
+    reflowMultilineText(elem)
+  })
+}
+
 /**
 * @function module:undo.init
 * @param {module:undo.undoContext} undoContext
@@ -70,7 +86,6 @@ export const getUndoManager = () => {
         }
         const elems = cmd.elements()
         svgCanvas.pathActions.clear()
-        svgCanvas.call('changed', elems)
         if (cmdType === 'MoveElementCommand') {
           const parent = isApply ? cmd.newParent : cmd.oldParent
           if (parent === svgCanvas.getSvgContent()) {
@@ -102,9 +117,7 @@ export const getUndoManager = () => {
           if (values.stdDeviation) {
             svgCanvas.setBlurOffsets(cmd.elem.parentNode, values.stdDeviation)
           }
-          if (cmd.elem.tagName === 'text' && isMultilineTextElement(cmd.elem)) {
-            reflowMultilineText(cmd.elem)
-          } else if (cmd.elem.tagName === 'text') {
+          if (cmd.elem.tagName === 'text' && !isMultilineTextElement(cmd.elem)) {
             const [dx, dy] = [cmd.newValues.x - cmd.oldValues.x,
               cmd.newValues.y - cmd.oldValues.y]
 
@@ -123,6 +136,8 @@ export const getUndoManager = () => {
             }
           }
         }
+        reflowMultilineTextElements(elems)
+        svgCanvas.call('changed', elems)
       }
     }
   })

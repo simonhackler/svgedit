@@ -415,7 +415,7 @@ class TextActions {
   select (target) {
     this.#curtext = target
     this.#promoteCurrentTextToMultiline()
-    svgCanvas.selectOnly?.([target])
+    svgCanvas.selectOnly?.([target], true)
     svgCanvas.textActions.toEditMode()
   }
 
@@ -464,7 +464,7 @@ class TextActions {
    */
   toEditMode () {
     svgCanvas.setCurrentMode('textedit')
-    svgCanvas.selectorManager.requestSelector(this.#curtext).showGrips(false)
+    // svgCanvas.selectorManager.requestSelector(this.#curtext).showGrips(true)
     // Make selector group accept clicks
     /* const selector = */ svgCanvas.selectorManager.requestSelector(this.#curtext) // Do we need this? Has side effect of setting lock, so keeping for now, but next line wasn't being used
     // const sel = selector.selectorRect;
@@ -490,6 +490,10 @@ class TextActions {
    */
   toSelectMode (selectElem) {
     svgCanvas.setCurrentMode('select')
+    return this.finishEdit(selectElem)
+  }
+
+  finishEdit (selectElem) {
     clearInterval(this.#blinker)
     this.#blinker = null
     if (this.#cursor) {
