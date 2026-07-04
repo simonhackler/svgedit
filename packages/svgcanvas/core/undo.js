@@ -17,8 +17,7 @@ import {
   transformPoint, transformListToTransform, getTransformList
 } from './math.js'
 import {
-  isMultilineTextElement,
-  reflowMultilineText
+  isMultilineTextElement
 } from './multiline-text.js'
 
 const {
@@ -26,22 +25,6 @@ const {
 } = hstry
 
 let svgCanvas = null
-
-const reflowMultilineTextElements = (elems) => {
-  const seen = new Set()
-  elems.forEach((elem) => {
-    if (
-      !elem ||
-      seen.has(elem) ||
-      elem.tagName !== 'text' ||
-      !isMultilineTextElement(elem)
-    ) {
-      return
-    }
-    seen.add(elem)
-    reflowMultilineText(elem)
-  })
-}
 
 /**
 * @function module:undo.init
@@ -136,7 +119,6 @@ export const getUndoManager = () => {
             }
           }
         }
-        reflowMultilineTextElements(elems)
         svgCanvas.call('changed', elems)
       }
     }
