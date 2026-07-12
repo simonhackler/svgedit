@@ -14,7 +14,13 @@ import {
   convertToNum
 } from './units.js'
 import { getParents } from '../common/util.js'
-import { applyMultilineText, getRawMultilineText } from './multiline-text.js'
+import {
+  applyMultilineText,
+  enableMultilineTextElement,
+  getRawMultilineText,
+  isMultilineTextElement,
+  reflowMultilineText
+} from './multiline-text.js'
 
 let svgCanvas = null
 
@@ -941,10 +947,12 @@ const getFontSizeMethod = () => {
 */
 const setFontSizeMethod = (val) => {
   const textElements = getSelectedTextElements()
+  textElements.filter(isMultilineTextElement).forEach(enableMultilineTextElement)
   const changedTextElements = getChangedTextElements(textElements, 'font-size', val)
   svgCanvas.setCurText('font_size', val)
   if (changedTextElements.length > 0) {
     svgCanvas.changeSelectedAttribute('font-size', val, changedTextElements)
+    changedTextElements.filter(isMultilineTextElement).forEach(reflowMultilineText)
   }
   if (!textElements.some(el => el.textContent)) {
     svgCanvas.textActions.setCursor()

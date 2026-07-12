@@ -133,7 +133,7 @@ async function getMultilineCursorGeometry (page, textSelector) {
     const computedStyle = window.getComputedStyle(textNode)
     const fontSize = Number.parseFloat(textNode.getAttribute('font-size') || computedStyle.fontSize) || 16
     const frameX = Number(textNode.getAttribute('x')) || 0
-    const frameY = (Number(textNode.getAttribute('y')) || fontSize) - fontSize
+    const frameY = Number(textNode.getAttribute('y')) || 0
     const frameWidth = Number(textNode.getAttribute('data-svgedit-wrap-width')) || 0
     const frameHeight = Number(textNode.getAttribute('data-svgedit-wrap-height')) || 0
 
@@ -367,6 +367,36 @@ test.describe('Multiline text', () => {
     expect(Number(after.wrapHeight)).toBeGreaterThan(Number(before.wrapHeight))
     expect(after.lines).toHaveLength(1)
     expect(after.lines[0].text).toBe('Shoot')
+  })
+
+  test('changing font size preserves the multiline frame size', async ({ page }) => {
+    await setSvgSource(page, `<svg width="640" height="480" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <rect id="frame_1" x="80" y="100" width="180" height="120" data-svgedit-text-frame="true" data-svgedit-frame-for="shape-inside"/>
+      </defs>
+      <g class="layer">
+        <title>Layer 1</title>
+        <text id="svg_1" x="80" y="100" font-size="16" font-family="sans-serif" data-svgedit-multiline="true" data-svgedit-frame-origin="top" data-svgedit-wrap-width="180" data-svgedit-wrap-height="120" data-svgedit-shape-inside-ref="#frame_1" data-svgedit-raw-text="first line second line">first line second line</text>
+      </g>
+    </svg>`)
+
+    await clickTextOnCanvas(page, 'svg_1')
+    const before = await getMultilineSnapshot(page, 'svg_1')
+    expect(before).not.toBeNull()
+
+    await page.locator('#font_size').evaluate((input) => {
+      input.value = '32'
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    const after = await getMultilineSnapshot(page, 'svg_1')
+    expect(after).not.toBeNull()
+    expect(after.x).toBe(before.x)
+    expect(after.y).toBe(before.y)
+    expect(after.wrapWidth).toBe(before.wrapWidth)
+    expect(after.wrapHeight).toBe(before.wrapHeight)
+    expect(after.frame).toEqual(before.frame)
+    await expect(page.locator('#svg_1')).toHaveAttribute('font-size', '32')
   })
 
   test('the normal text tool opens an editable multiline frame for new text', async ({ page }) => {

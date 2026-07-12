@@ -273,7 +273,7 @@ class TextActions {
     const lineText = mappings[targetLine]?.lineText ?? ''
     const frameX = this.#getNumericAttr('x', 0)
     const fontSize = this.#getCurrentFontSize()
-    const frameY = this.#getNumericAttr('y', fontSize) - fontSize
+    const frameY = this.#getNumericAttr('y', fontSize)
     const lineHeight = this.#getCurrentLineHeight()
     const domIndexForCursor = (mappings[targetLine]?.domStart ?? 0) + column
 
@@ -310,7 +310,7 @@ class TextActions {
     const fontSize = this.#getCurrentFontSize()
     const lineHeight = this.#getCurrentLineHeight()
     const frameX = this.#getNumericAttr('x', 0)
-    const frameY = this.#getNumericAttr('y', fontSize) - fontSize
+    const frameY = this.#getNumericAttr('y', fontSize)
     const frameWidth = Math.max(this.#getNumericAttr('data-svgedit-wrap-width', 1), 1)
     const frameHeight = Math.max(this.#getNumericAttr('data-svgedit-wrap-height', 1), 1)
 

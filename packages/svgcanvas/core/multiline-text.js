@@ -5,6 +5,7 @@ const RAW_TEXT_ATTR = 'data-svgedit-raw-text'
 const WRAP_WIDTH_ATTR = 'data-svgedit-wrap-width'
 const WRAP_HEIGHT_ATTR = 'data-svgedit-wrap-height'
 const MULTILINE_ATTR = 'data-svgedit-multiline'
+const FRAME_ORIGIN_ATTR = 'data-svgedit-frame-origin'
 const OVERFLOW_ATTR = 'data-svgedit-text-overflow'
 const EMPTY_LINE_ATTR = 'data-svgedit-empty-line'
 const EMPTY_LINE_PLACEHOLDER = ' '
@@ -128,6 +129,13 @@ const getWrapWidth = (textElem) => {
     return rawWrapWidth
   }
   return 1000000
+}
+
+const hasTopFrameOrigin = (textElem) => textElem.getAttribute(FRAME_ORIGIN_ATTR) === 'top'
+
+const getFrameY = (textElem, fontSize) => {
+  const textY = toNumber(textElem.getAttribute('y'), fontSize)
+  return hasTopFrameOrigin(textElem) ? textY : textY - fontSize
 }
 
 const clearTextChildren = (textElem) => {
@@ -278,7 +286,7 @@ const resolveFrameY = ({ textElem, bbox, frameRect, fontSize, firstLine }) => {
 
   const textY = toNumber(textElem.getAttribute('y'), Number.NaN)
   if (Number.isFinite(textY)) {
-    return textY - fontSize
+    return hasTopFrameOrigin(textElem) ? textY : textY - fontSize
   }
 
   const lineY = toNumber(firstLine?.getAttribute?.('y'), Number.NaN)
@@ -323,7 +331,7 @@ export const applyMultilineText = (textElem, rawText) => {
   clearTextChildren(textElem)
   const x = textElem.getAttribute('x') || '0'
   const baseX = toNumber(x, 0)
-  const y = toNumber(textElem.getAttribute('y'), getLineHeight(textElem))
+  const y = getFrameY(textElem, getTextFontSize(textElem)) + getTextFontSize(textElem)
   const textAlign = getTextAlign(textElem)
 
   renderedLines.forEach((line, index) => {
@@ -387,10 +395,9 @@ export const getMultilineFrameBox = (textElem) => {
     return null
   }
 
-  const fontSize = getTextFontSize(textElem)
   return {
     x: toNumber(textElem.getAttribute('x'), 0),
-    y: toNumber(textElem.getAttribute('y'), fontSize) - fontSize,
+    y: getFrameY(textElem, getTextFontSize(textElem)),
     width,
     height
   }
@@ -414,8 +421,9 @@ export const enableMultilineTextElement = (textElem) => {
   textElem.setAttribute(WRAP_WIDTH_ATTR, String(promotedWidth))
   textElem.setAttribute(WRAP_HEIGHT_ATTR, String(promotedHeight))
   textElem.setAttribute('x', String(frameX))
-  textElem.setAttribute('y', String(frameY + fontSize))
+  textElem.setAttribute('y', String(frameY))
   textElem.setAttribute('text-anchor', 'start')
+  textElem.setAttribute(FRAME_ORIGIN_ATTR, 'top')
 
   if (frameRect?.id) {
     textElem.setAttribute('data-svgedit-shape-inside-ref', `#${frameRect.id}`)
@@ -444,9 +452,8 @@ export const syncMultilineFrameRect = (textElem) => {
     return null
   }
 
-  const fontSize = getTextFontSize(textElem)
   const x = toNumber(textElem.getAttribute('x'), 0)
-  const y = toNumber(textElem.getAttribute('y'), fontSize) - fontSize
+  const y = getFrameY(textElem, getTextFontSize(textElem))
   const width = Math.max(1, toNumber(textElem.getAttribute(WRAP_WIDTH_ATTR), 1))
   const height = Math.max(1, toNumber(textElem.getAttribute(WRAP_HEIGHT_ATTR), 1))
 
@@ -471,9 +478,9 @@ export const setMultilineFrameBox = (textElem, box) => {
     return
   }
 
-  const fontSize = getTextFontSize(textElem)
   textElem.setAttribute('x', String(toNumber(box.x, 0)))
-  textElem.setAttribute('y', String(toNumber(box.y, 0) + fontSize))
+  textElem.setAttribute('y', String(toNumber(box.y, 0)))
+  textElem.setAttribute(FRAME_ORIGIN_ATTR, 'top')
   textElem.setAttribute(WRAP_WIDTH_ATTR, String(Math.max(1, toNumber(box.width, 1))))
   textElem.setAttribute(WRAP_HEIGHT_ATTR, String(Math.max(1, toNumber(box.height, 1))))
   reflowMultilineText(textElem)
